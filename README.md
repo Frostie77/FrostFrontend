@@ -4,7 +4,7 @@
 
 It gives games a compact controller-friendly menu without making them depend on Arcane, Ruffle, or any particular game engine.
 
-> **Status: v0.5.0-dev-demo (Arcane menu parity restoration; build/device test pending).** The earlier standalone demo and native speaker test passed on the AYN Odin 2 Portal. The revised menu copies Arcane's warning triangle, exit confirmation and settings structure. The production Arcane v0.2.0 remains unchanged.
+> **Status: v0.5.0-dev-demo — Odin 2 Portal user acceptance tests reported satisfactory.** The revised demo follows Arcane's proven layout, including its warning triangle, exit confirmation and settings structure. Integration into another game is still pending; the production Arcane v0.2.0 remains unchanged.
 
 ## What's included
 
@@ -79,7 +79,7 @@ The Arcane-derived button mapping screen now includes:
 
 The game-independent mapping model keeps the same conflict rule as Arcane: assigning a previously used button makes its old action **Unmapped**. The demo saves its own settings but does **not** launch the Arcane game or alter game input. Only Arcane's in-game version actually controls Arcane gameplay.
 
-**Testing status:** The original standalone menu and new native stereo speaker test have passed on the Odin 2 Portal. The copied Arcane-style pages, mapping override, small warning triangles and modal **have not yet been built and device-verified** in this revised demo. The production Arcane v0.2.0 code and release remain unchanged.
+**Testing status (user report):** The user has tested the updated standalone demo on the Odin 2 Portal and reports that all tested features are satisfactory so far. This includes review of the revised Arcane-style interface and settings. No separate automated regression suite or integration test in another game is yet recorded. The production Arcane v0.2.0 code and release remain unchanged.
 
 ## Odin 2 Portal demo verification
 
@@ -92,7 +92,7 @@ The user tested the separately installed `FrostFrontend Demo` APK on the AYN Odi
 - **PASS:** Touch-only tab switching, setting selection and close (X) button.
 
 This validates the demo host and core library interaction. It does not yet prove compatibility with all third-party ports.
-The original four-tab demo passed device testing. The **five-tab demo and native Sound speaker test also passed** on the Odin 2 Portal. The newer button-mapping interface still needs device validation.
+The original four-tab demo passed device testing. The five-tab demo and native Sound speaker test also passed, and the user subsequently reported satisfaction after testing the revised v0.5.0 feature set. This is a user acceptance report, not a claim of independent automated verification.
 
 
 ## Integration
