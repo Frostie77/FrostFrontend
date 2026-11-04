@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -188,6 +189,7 @@ public final class DemoActivity extends Activity {
                 if ("controls".equals(tabId)) {
                     if ("button_mapping".equals(itemId)) {
                         showingButtonMap = true;
+                        frontend.clearMappingNotice();
                         return;
                     }
                     if ("map_back".equals(itemId)) {
@@ -197,6 +199,7 @@ public final class DemoActivity extends Activity {
                     if ("map_reset".equals(itemId)) {
                         mapper.resetDefaults();
                         mapper.save(preferences, "binding_");
+                        frontend.showMappingNotice("Default button assignments restored.");
                         status.setText("Controller buttons restored to defaults.");
                         return;
                     }
@@ -214,12 +217,15 @@ public final class DemoActivity extends Activity {
                                 @Override public void onCaptured(int code) {
                                     FrostButtonMapper.Change change = mapper.assign(actionId, code);
                                     mapper.save(preferences, "binding_");
-                                    status.setText("Assigned " + actionId + " to " +
-                                        FrostButtonMapper.buttonName(code));
-                                    if (change.unmappedAction != null)
-                                        Toast.makeText(DemoActivity.this,
-                                            change.unmappedAction + " is now Unmapped.",
-                                            Toast.LENGTH_LONG).show();
+                                    String binding = actionId + " → " +
+                                        FrostButtonMapper.buttonName(code);
+                                    String detail = "Assigned " + binding;
+                                    if (change.unmappedAction != null) {
+                                        detail += ". " + change.unmappedAction +
+                                            " was overridden and is now UNMAPPED.";
+                                    }
+                                    status.setText(detail);
+                                    frontend.showMappingNotice(detail);
                                     frontend.refresh();
                                 }
 
@@ -287,6 +293,12 @@ public final class DemoActivity extends Activity {
             return true;
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    @Override public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (frontend != null && frontend.handleGenericMotionEvent(event))
+            return true;
+        return super.dispatchGenericMotionEvent(event);
     }
 
     @Override protected void onDestroy() {
