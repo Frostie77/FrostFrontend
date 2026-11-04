@@ -10,6 +10,7 @@ It gives games a compact controller-friendly menu without making them depend on 
 
 - **Android library module**: `frostfrontend/`
 - Compact dark menu with gold highlights, a top navigation bar and a dedicated close button
+- Five menu sections in order: **Graphics, Sound, Controls, Touch Settings, Updates**
 - Tabs and setting rows supplied by each host game
 - Touch navigation and gamepad navigation: **L1/R1**, **D-pad**, **A**, **B**, **Start**
 - Setting descriptions that appear only for the selected row
@@ -32,7 +33,7 @@ The output is an **Android library (AAR)**, not a standalone APK. A game embeds 
 
 ## Test the standalone demo APK
 
-The separate `demo/` app exercises FrostFrontend's tabs, touch input, gamepad navigation and saved sample settings. It does **not** contain or change Arcane, its files, or its saved games.
+The separate `demo/` app exercises FrostFrontend's five tabs, touch input, gamepad navigation, native stereo speaker test and saved sample settings. It does **not** contain or change Arcane, its files, or its saved games.
 
 From the repository root (with JDK 17 and `ANDROID_HOME` configured):
 
@@ -43,6 +44,12 @@ gradle :demo:assembleDebug
 Install `demo/build/outputs/apk/debug/demo-debug.apk` on your Android device.
 
 Open it using **OPEN FROSTFRONTEND** or the controller **Start** button. Try changing tabs, selecting settings and closing/reopening the menu. Demo setting values are saved only inside the demo app. The "Check for Updates" row intentionally displays a demo-only message rather than accessing a real release feed.
+
+## Sound: stereo speaker test (in testing)
+
+**Sound** appears immediately after **Graphics** in the five-tab demo. Its **Speaker Test: Left → Right → Both** option uses the reusable `FrostSpeakerTest` Android class to play three 440 Hz stereo tones at the device's media volume. This plays independently of WebView or a game's sound system, so it checks speaker/channel output rather than repairing game audio.
+
+The host game should pause its own sound while the test plays and call `stop()` when its menu closes or Activity is destroyed. The demo does both. This feature has not yet been device-tested; Arcane's already-released APK remains unchanged.
 
 ## New: reusable controller button mapping (in testing)
 
@@ -74,6 +81,8 @@ The user tested the separately installed `FrostFrontend Demo` APK on the AYN Odi
 - **PASS:** Touch-only tab switching, setting selection and close (X) button.
 
 This validates the demo host and core library interaction. It does not yet prove compatibility with all third-party ports.
+The original four-tab demo passed device testing. The **new Sound tab, native speaker test and button-mapping interface still need validation** on the Odin 2 Portal.
+
 
 ## Integration
 
@@ -91,6 +100,7 @@ root.addView(frontend, new FrameLayout.LayoutParams(-1, -1));
 
 frontend.setTabs(Arrays.asList(
     new FrostFrontendView.Tab("graphics", "Graphics"),
+    new FrostFrontendView.Tab("sound", "Sound"),
     new FrostFrontendView.Tab("controls", "Controls"),
     new FrostFrontendView.Tab("touch", "Touch Settings"),
     new FrostFrontendView.Tab("updates", "Updates")
