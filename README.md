@@ -80,7 +80,11 @@ The separate demo now has **Controls → Button Mapping** with seven sample acti
 5. Try **Restore Default Buttons** and confirm the originals return.
 6. During button capture, press **Start**; it should cancel rather than assign a button.
 
-This new mapping feature is **not yet device-verified** and is not included in the previously tested demo APK.
+**Update (demo v0.4.0-dev-demo):** A user reported that assigning a button already used by another action did not take effect on the Odin 2 Portal. The mapping model is designed to override and unmap the previous action. We added a prominent in-menu confirmation and capture of L2/R2 when the Android gamepad reports those triggers as analogue axes. This revised behavior still requires device verification.
+
+**Re-test:** Under Controls → Button Mapping, assign **Attack** to **X** (normally Throw). Expected: **Attack: X**, **Throw: Unmapped**, and a visible override confirmation. Then restart the demo and confirm those values persist. If the display does not change, report whether the **ASSIGN ATTACK** prompt appeared. Restoring defaults should reset Attack to R1 and Throw to X.
+
+The controller mapping feature remains in development until this is confirmed on-device.
 
 ## Odin 2 Portal demo verification
 
