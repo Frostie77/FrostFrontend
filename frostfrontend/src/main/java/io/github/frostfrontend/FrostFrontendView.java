@@ -109,6 +109,7 @@ public final class FrostFrontendView extends FrameLayout {
     private ButtonCaptureListener captureListener;
     private int tabIndex;
     private int selectedRow;
+    private int menuAxisLatch;
     private boolean isOpen;
     private boolean mappingMode;
     public interface BackListener { boolean onBackRequested(); }
@@ -210,6 +211,7 @@ public final class FrostFrontendView extends FrameLayout {
     public void open() {
         if (isOpen || tabs.isEmpty()) return;
         isOpen = true;
+        menuAxisLatch = 0;
         setVisibility(VISIBLE);
         resizePanel();
         refresh();
@@ -228,6 +230,7 @@ public final class FrostFrontendView extends FrameLayout {
         cancelButtonCapture();
         if (mappingMode && onLeavingMapping != null) onLeavingMapping.run();
         mappingMode = false;
+        menuAxisLatch = 0;
         isOpen = false;
         setVisibility(GONE);
         if (adapter != null) adapter.onVisibilityChanged(false);
@@ -280,22 +283,50 @@ public final class FrostFrontendView extends FrameLayout {
      * events. The host Activity can pass its generic motion events here.
      * Return false outside capture so the host game still receives them.
      */
+    /**
+     * Arcane's analogue menu navigation: left stick Y selects rows, left
+     * stick X selects modal choices, triggers can be captured as L2/R2.
+     * The latch prevents one long analogue press scrolling through pages.
+     */
     public boolean handleGenericMotionEvent(MotionEvent event) {
-        if (!isOpen || captureListener == null) return false;
+        if (!isOpen) return false;
         if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) == 0 ||
             event.getActionMasked() != MotionEvent.ACTION_MOVE) return false;
-        float left = Math.max(event.getAxisValue(MotionEvent.AXIS_LTRIGGER),
-            event.getAxisValue(MotionEvent.AXIS_BRAKE));
-        float right = Math.max(event.getAxisValue(MotionEvent.AXIS_RTRIGGER),
-            event.getAxisValue(MotionEvent.AXIS_GAS));
-        // Rising edge only; avoid repeated captures while a trigger is held.
-        if (left >= 0.75f && leftTriggerAxis < 0.75f) {
-            completeButtonCapture(KeyEvent.KEYCODE_BUTTON_L2);
-        } else if (right >= 0.75f && rightTriggerAxis < 0.75f) {
-            completeButtonCapture(KeyEvent.KEYCODE_BUTTON_R2);
+
+        if (unmappedWarningLayer != null) {
+            float x = event.getAxisValue(MotionEvent.AXIS_X);
+            int direction = x > 0.68f ? 1 : x < -0.68f ? -1 : 0;
+            if (direction == 0) {
+                if (Math.abs(x) < 0.28f) menuAxisLatch = 0;
+            } else if (menuAxisLatch == 0) {
+                menuAxisLatch = direction;
+                selectWarningChoice(direction > 0 ? 1 : 0);
+            }
+            return true;
         }
-        leftTriggerAxis = left;
-        rightTriggerAxis = right;
+
+        if (captureListener != null) {
+            float left = Math.max(event.getAxisValue(MotionEvent.AXIS_LTRIGGER),
+                event.getAxisValue(MotionEvent.AXIS_BRAKE));
+            float right = Math.max(event.getAxisValue(MotionEvent.AXIS_RTRIGGER),
+                event.getAxisValue(MotionEvent.AXIS_GAS));
+            if (left > 0.8f && leftTriggerAxis <= 0.8f)
+                completeButtonCapture(KeyEvent.KEYCODE_BUTTON_L2);
+            else if (right > 0.8f && rightTriggerAxis <= 0.8f)
+                completeButtonCapture(KeyEvent.KEYCODE_BUTTON_R2);
+            leftTriggerAxis = left;
+            rightTriggerAxis = right;
+            return true;
+        }
+
+        float y = event.getAxisValue(MotionEvent.AXIS_Y);
+        int direction = y > 0.68f ? 1 : y < -0.68f ? -1 : 0;
+        if (direction == 0) {
+            if (Math.abs(y) < 0.28f) menuAxisLatch = 0;
+        } else if (menuAxisLatch == 0) {
+            menuAxisLatch = direction;
+            changeSelection(direction);
+        }
         return true;
     }
 
@@ -538,6 +569,7 @@ public final class FrostFrontendView extends FrameLayout {
             mappingMode = false;
             tabIndex = newIndex;
             selectedRow = 0;
+            menuAxisLatch = 0;
             scroll.scrollTo(0, 0);
             refresh();
         });
@@ -769,6 +801,7 @@ private final class WarningOptionRow extends TextView {
 
         
         warningSelection = 0;
+        menuAxisLatch = 0;
         unmappedWarningLayer = new FrameLayout(getContext());
         unmappedWarningLayer.setBackgroundColor(0x99000000);
         unmappedWarningLayer.setClickable(true);
