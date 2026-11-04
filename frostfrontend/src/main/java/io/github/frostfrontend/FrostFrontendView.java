@@ -77,6 +77,11 @@ public final class FrostFrontendView extends FrameLayout {
 
         /** Pause/resume the host game when this view opens/closes. */
         void onVisibilityChanged(boolean visible);
+
+        /** Arcane uses left/right to cycle settings in both directions. */
+        default void onItemAdjusted(String tabId, String itemId, int direction) {
+            onItemSelected(tabId, itemId);
+        }
     }
 
     private static final int PANEL = 0xF5221A2B;
@@ -102,6 +107,32 @@ public final class FrostFrontendView extends FrameLayout {
     private int selectedRow;
     private boolean isOpen;
     private boolean mappingMode;
+    public interface BackListener { boolean onBackRequested(); }
+    private BackListener backListener;
+
+    public void setBackListener(BackListener listener) {
+        backListener = listener;
+    }
+
+    public void back() {
+        if (unmappedWarningLayer != null) {
+            confirmUnmappedWarning(false);
+            return;
+        }
+        if (captureListener != null) {
+            cancelButtonCapture();
+            return;
+        }
+        if (mappingMode) {
+            requestMappingBack();
+        } else if (backListener != null && backListener.onBackRequested()) {
+            refresh();
+        } else if (tabIndex != 0) {
+            selectTab(0);
+        } else {
+            close();
+        }
+    }
     private FrostButtonMapper buttonMapper;
     private Runnable onLeavingMapping;
     private Runnable pendingExit;
@@ -208,8 +239,7 @@ public final class FrostFrontendView extends FrameLayout {
         leftTriggerAxis = 0f;
         rightTriggerAxis = 0f;
         clearMappingNotice();
-        captureBanner.setText("ASSIGN " + actionName.toUpperCase(java.util.Locale.ROOT)
-            + "  ·  Press A/B/X/Y, L1/L2/R1/R2 or L3/R3  ·  Start to cancel");
+        captureBanner.setText("WAITING FOR BUTTON…");
         captureBanner.setVisibility(VISIBLE);
         requestFocus();
     }
@@ -300,8 +330,7 @@ public final class FrostFrontendView extends FrameLayout {
             } else if (FrostButtonMapper.isAssignableButton(code)) {
                 completeButtonCapture(code);
             } else {
-                captureBanner.setText("Button not assignable (" + code +
-                    "). Choose A/B/X/Y, L1/L2/R1/R2, L3/R3 or Start to cancel.");
+                // Arcane ignores unassignable button inputs during capture.
             }
             return true;
         }
@@ -327,8 +356,13 @@ public final class FrostFrontendView extends FrameLayout {
                 break;
             case KeyEvent.KEYCODE_BUTTON_B:
             case KeyEvent.KEYCODE_BACK:
-                if (mappingMode) requestMappingBack();
-                else close();
+                back();
+                break;
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+                adjustSelection(-1);
+                break;
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                adjustSelection(1);
                 break;
             case KeyEvent.KEYCODE_BUTTON_START:
                 close();
@@ -382,8 +416,6 @@ public final class FrostFrontendView extends FrameLayout {
         captureBanner.setOnClickListener(v -> cancelButtonCapture());
         LinearLayout.LayoutParams captureParams = new LinearLayout.LayoutParams(-1, -2);
         captureParams.bottomMargin = dp(6);
-        panel.addView(captureBanner, captureParams);
-
         mappingNotice = new TextView(getContext());
         mappingNotice.setTextSize(14);
         mappingNotice.setTextColor(0xFFFFE6AD);
@@ -391,13 +423,11 @@ public final class FrostFrontendView extends FrameLayout {
         mappingNotice.setPadding(dp(10), dp(7), dp(10), dp(7));
         mappingNotice.setBackground(background(0xFF3B2939, GOLD, 7));
         mappingNotice.setVisibility(GONE);
-        LinearLayout.LayoutParams noticeParams = new LinearLayout.LayoutParams(-1, -2);
-        noticeParams.bottomMargin = dp(6);
-        panel.addView(mappingNotice, noticeParams);
 
         scroll = new ScrollView(getContext());
         scroll.setFillViewport(false);
         panel.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+        panel.addView(captureBanner, captureParams);
         rowContainer = new LinearLayout(getContext());
         rowContainer.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(rowContainer, new ScrollView.LayoutParams(-1, -2));
@@ -487,6 +517,12 @@ public final class FrostFrontendView extends FrameLayout {
         if (items.isEmpty()) return;
         selectedRow = Math.max(0, Math.min(items.size() - 1, selectedRow + direction));
         updateSelection();
+    }
+
+    private void adjustSelection(int direction) {
+        if (adapter == null || items.isEmpty()) return;
+        adapter.onItemAdjusted(tabs.get(tabIndex).id, items.get(selectedRow).id, direction);
+        if (isOpen) refresh();
     }
 
     private void activateSelection() {
@@ -685,10 +721,10 @@ private final class WarningOptionRow extends TextView {
 
 
     private void showUnmappedWarning() {
-        if (unmappedWarningLayer != null || FrostFrontendView.this == null) return;
+        if (unmappedWarningLayer != null) return;
         StringBuilder names = new StringBuilder();
         for (String actionName : buttonMapper.unmappedActions()) {
-            if (names.length() > 0) names.append("\\n");
+            if (names.length() > 0) names.append("\n");
             names.append("• ").append(actionName);
         }
         if (names.length() == 0) {
