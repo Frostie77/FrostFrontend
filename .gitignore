@@ -1,0 +1,14 @@
+# Local Android/Gradle build output
+.gradle/
+**/build/
+local.properties
+.idea/
+*.iml
+*.apk
+*.aab
+
+# Signing material and private data
+*.keystore
+*.jks
+*.swf
+.env
