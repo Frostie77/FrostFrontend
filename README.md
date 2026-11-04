@@ -63,28 +63,23 @@ This script runs `git pull --ff-only`, builds the latest demo APK and uses `adb 
 
 The script is currently configured for the Windows JDK/Gradle/Android SDK locations used during development. If those tools are moved, adjust their paths in `update-demo.ps1`.
 
-## New: reusable controller button mapping (in testing)
+## Arcane menu parity — demo v0.5.0-dev-demo
 
-The library now includes `FrostButtonMapper`, a generic model for physical gamepad assignments. Each game defines its own action names and defaults; the library handles one-button-per-action assignments, conflicts, unassigned actions, reset and `SharedPreferences` persistence.
+The demo has been realigned with the **working Arcane v0.2.0 FrostFrontend** rather than inventing a different settings layout. It retains the same header styling, row spacing, highlighted-row descriptions, submenu structure, controller navigation, default button mappings, touch settings and movement settings.
 
-`FrostFrontendView.beginButtonCapture(...)` temporarily captures the next supported gamepad button (A/B/X/Y, L1/R1/L2/R2, L3/R3). **Start** or Android **Back** cancels without changing a binding. Start, the D-pad and Android Back cannot be assigned as gameplay buttons through this interface. If a button is already mapped, the previous action becomes **Unmapped** instead of silently swapping.
+**Only changes to the visible Arcane menu:** a new **Sound** heading immediately after **Graphics**, and **Speaker Test: Left → Right → Both** moved from Graphics into Sound. All other menu pages follow Arcane's layout and labels.
 
-The separate demo now has **Controls → Button Mapping** with seven sample action assignments. These are saved only in the demo app and do not control Arcane's actual game actions. The demo intentionally uses the same package ID for in-place updates, so use `adb install -r` rather than uninstalling the previous demo.
+The Arcane-derived button mapping screen now includes:
 
-**New-device checks to perform on the Odin:**
+- The small, **painted yellow warning triangle** alongside any **Unmapped** action.
+- The matching **UNMAPPED CONTROLS** modal when leaving mapping with missing assignments, listing the affected actions.
+- **Keep Editing** (default) and **Continue Anyway**, selectable by touch or D-pad/A. B, Start or Android Back dismiss the warning without exiting.
+- Warning checks for **Back to Controls**, changing tabs and exiting using the X or Start.
+- Original Arcane defaults: Attack R2, Alternate Attack R1, Switch Weapon A, Swap Armour B, Throw X, Previous Throwable Y, Next Throwable L1.
 
-1. Open **Controls → Button Mapping** and select any action.
-2. Assign a different physical gamepad button. Confirm the displayed assignment changes.
-3. Reuse a button belonging to another action; the previous action should show **Unmapped**.
-4. Close and reopen the demo; assignments should persist.
-5. Try **Restore Default Buttons** and confirm the originals return.
-6. During button capture, press **Start**; it should cancel rather than assign a button.
+The game-independent mapping model keeps the same conflict rule as Arcane: assigning a previously used button makes its old action **Unmapped**. The demo saves its own settings but does **not** launch the Arcane game or alter game input. Only Arcane's in-game version actually controls Arcane gameplay.
 
-**Update (demo v0.4.0-dev-demo):** A user reported that assigning a button already used by another action did not take effect on the Odin 2 Portal. The mapping model is designed to override and unmap the previous action. We added a prominent in-menu confirmation and capture of L2/R2 when the Android gamepad reports those triggers as analogue axes. This revised behavior still requires device verification.
-
-**Re-test:** Under Controls → Button Mapping, assign **Attack** to **X** (normally Throw). Expected: **Attack: X**, **Throw: Unmapped**, and a visible override confirmation. Then restart the demo and confirm those values persist. If the display does not change, report whether the **ASSIGN ATTACK** prompt appeared. Restoring defaults should reset Attack to R1 and Throw to X.
-
-The controller mapping feature remains in development until this is confirmed on-device.
+**Testing status:** The original standalone menu and new native stereo speaker test have passed on the Odin 2 Portal. The copied Arcane-style pages, mapping override, small warning triangles and modal **have not yet been built and device-verified** in this revised demo. The production Arcane v0.2.0 code and release remain unchanged.
 
 ## Odin 2 Portal demo verification
 
