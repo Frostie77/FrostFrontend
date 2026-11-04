@@ -101,6 +101,10 @@ public final class FrostFrontendView extends FrameLayout {
     private ScrollView scroll;
     private TextView captureBanner;
     private TextView mappingNotice;
+    private TextView updateInfo;
+    private String installedVersion = "FrostFrontend Demo";
+    private String latestVersion = "Not checked";
+    private String updateStatus = "Demo only: no verified update feed";
     private float leftTriggerAxis, rightTriggerAxis;
     private ButtonCaptureListener captureListener;
     private int tabIndex;
@@ -167,6 +171,13 @@ public final class FrostFrontendView extends FrameLayout {
 
     public boolean isOpen() {
         return isOpen;
+    }
+
+    public void setUpdateInfo(String installed, String latest, String status) {
+        installedVersion = installed;
+        latestVersion = latest;
+        updateStatus = status;
+        if (isOpen) refresh();
     }
 
     /** Called by a host on entry to Arcane's Button Mapping submenu. */
@@ -405,6 +416,16 @@ public final class FrostFrontendView extends FrameLayout {
             dp(33), dp(33), Gravity.END | Gravity.CENTER_VERTICAL);
         header.addView(exit, exitParams);
 
+        updateInfo = new TextView(getContext());
+        updateInfo.setTextSize(15);
+        updateInfo.setTextColor(0xFFF0E3D1);
+        updateInfo.setPadding(dp(12), dp(8), dp(12), dp(8));
+        updateInfo.setBackground(background(0xAA30253B, 0, 9));
+        updateInfo.setVisibility(GONE);
+        LinearLayout.LayoutParams updateParams = new LinearLayout.LayoutParams(-1, -2);
+        updateParams.bottomMargin = dp(6);
+        panel.addView(updateInfo, updateParams);
+
         captureBanner = new TextView(getContext());
         captureBanner.setTextSize(14);
         captureBanner.setTextColor(0xFFFFE6AD);
@@ -434,12 +455,19 @@ public final class FrostFrontendView extends FrameLayout {
     }
 
     private void renderTabs() {
+        if (updateInfo != null) {
+            updateInfo.setVisibility("updates".equals(tabs.get(tabIndex).id)
+                ? VISIBLE : GONE);
+            updateInfo.setText("Installed: " + installedVersion +
+                "\nLatest: " + latestVersion + "\n" + updateStatus);
+        }
         tabStrip.removeAllViews();
         for (int i = 0; i < tabs.size(); i++) {
             final int index = i;
             TextView tab = new TextView(getContext());
             tab.setText(tabs.get(i).title);
             tab.setTextSize(18);
+            tab.setPadding(dp(4), dp(1), dp(4), dp(1));
             tab.setSingleLine(true);
             tab.setEllipsize(TextUtils.TruncateAt.END);
             tab.setGravity(Gravity.CENTER);
@@ -489,7 +517,10 @@ public final class FrostFrontendView extends FrameLayout {
                 updateSelection();
                 activateSelection();
             });
-            rowContainer.addView(row, new LinearLayout.LayoutParams(-1, -2));
+            LinearLayout.LayoutParams rowParams =
+                new LinearLayout.LayoutParams(-1, -2);
+            rowParams.bottomMargin = dp(3);
+            rowContainer.addView(row, rowParams);
             rowViews.add(row);
         }
         updateSelection();
