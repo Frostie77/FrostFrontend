@@ -51,6 +51,18 @@ Open it using **OPEN FROSTFRONTEND** or the controller **Start** button. Try cha
 
 The host game should pause its own sound while the test plays and call `stop()` when its menu closes or Activity is destroyed. The demo does both. This feature has not yet been device-tested; Arcane's already-released APK remains unchanged.
 
+## One-command demo update
+
+After pulling this script once, you can run:
+
+```powershell
+.\update-demo.ps1
+```
+
+This script runs `git pull --ff-only`, builds the latest demo APK and uses `adb install -r` to update the already-installed demo without clearing its saved settings. Your Odin must be connected with USB debugging enabled. It does not touch Arcane.
+
+The script is currently configured for the Windows JDK/Gradle/Android SDK locations used during development. If those tools are moved, adjust their paths in `update-demo.ps1`.
+
 ## New: reusable controller button mapping (in testing)
 
 The library now includes `FrostButtonMapper`, a generic model for physical gamepad assignments. Each game defines its own action names and defaults; the library handles one-button-per-action assignments, conflicts, unassigned actions, reset and `SharedPreferences` persistence.
