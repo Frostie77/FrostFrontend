@@ -298,7 +298,9 @@ public final class FrostFrontendView extends FrameLayout {
             tab.setBackground(background(i == tabIndex ? SELECTED : NORMAL,
                 i == tabIndex ? 0xFFD0AA69 : 0xFF564761, 9));
             tab.setContentDescription(tabs.get(i).title + " settings");
-            tab.setOnClickListener(v -> selectTab(index));
+            tab.setOnClickListener(v -> {
+                if (captureListener == null) selectTab(index);
+            });
             LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(0, -1, 1f);
             if (i > 0) params.leftMargin = dp(6);
@@ -326,6 +328,7 @@ public final class FrostFrontendView extends FrameLayout {
             final int index = i;
             OptionRow row = new OptionRow(getContext(), items.get(i));
             row.setOnClickListener(v -> {
+                if (captureListener != null) return;
                 selectedRow = index;
                 updateSelection();
                 activateSelection();
