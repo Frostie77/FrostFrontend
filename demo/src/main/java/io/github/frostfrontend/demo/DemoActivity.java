@@ -104,6 +104,8 @@ public final class DemoActivity extends Activity {
 
         frontend = new FrostFrontendView(this);
         root.addView(frontend, new FrameLayout.LayoutParams(-1, -1));
+        frontend.setUpdateInfo("FrostFrontend Demo v0.5.0", "Not checked",
+            "Standalone demo; update checks belong to the host game.");
         frontend.setTabs(Arrays.asList(
             new FrostFrontendView.Tab("graphics", "Graphics"),
             new FrostFrontendView.Tab("sound", "Sound"),
