@@ -43,6 +43,18 @@ Install `demo/build/outputs/apk/debug/demo-debug.apk` on your Android device.
 
 Open it using **OPEN FROSTFRONTEND** or the controller **Start** button. Try changing tabs, selecting settings and closing/reopening the menu. Demo setting values are saved only inside the demo app. The "Check for Updates" row intentionally displays a demo-only message rather than accessing a real release feed.
 
+## Odin 2 Portal demo verification
+
+The user tested the separately installed `FrostFrontend Demo` APK on the AYN Odin 2 Portal:
+
+- **PASS:** The four-tab layout renders as expected.
+- **PASS:** Example settings change and display their new values.
+- **PASS:** Settings persist after closing and reopening the app.
+- **PASS:** Physical controls: L1/R1 tab switching, D-pad navigation, A selection, B close, and Start reopen.
+- **Pending:** Verify touch-only tab switching, setting selection and exit button.
+
+This validates the demo host and core library interaction. It does not yet prove compatibility with all third-party ports.
+
 ## Integration
 
 Add the `frostfrontend` module to the host game's Gradle project and include:
