@@ -19,6 +19,40 @@ It gives games a compact controller-friendly menu without making them depend on 
 
 Each game provides its **own** tabs, settings and update checks, and connects the mapping model to its own gameplay input. FrostFrontend provides the common interface, navigation and optional reusable button-mapping model.
 
+## Per-game controller profiles
+
+Ports can now define their own actions and default **physical gamepad buttons**
+with `FrostControlProfile`. The universal menu, button conflict handling,
+unmapped-control warning, and **Sound → Speaker Test** do not change.
+
+Example in a game's Android Activity:
+
+```java
+FrostControlProfile profile = FrostControlProfile.of("example-port",
+    new FrostButtonMapper.Action("jump", "Jump", KeyEvent.KEYCODE_BUTTON_A),
+    new FrostButtonMapper.Action("attack", "Attack", KeyEvent.KEYCODE_BUTTON_B),
+    new FrostButtonMapper.Action("interact", "Interact", KeyEvent.KEYCODE_BUTTON_X)
+);
+SharedPreferences prefs = getSharedPreferences("controls", MODE_PRIVATE);
+FrostButtonMapper mapper = profile.load(prefs);
+
+// Supply mapper.actions() and mapper.buttonFor(id) to the familiar Button Mapping
+// rows; call frontend.enterButtonMapping(mapper, onLeaveMapping).
+// After capture:
+mapper.assign("jump", KeyEvent.KEYCODE_BUTTON_Y);
+mapper.save(prefs, profile.preferencePrefix());
+```
+
+The host port translates the mapped action IDs into its actual gameplay
+inputs. Profile IDs are stable and separate their saved button assignments.
+The demo uses an Arcane-compatible profile with its existing `binding_`
+storage prefix, preserving the user's current demo assignments.
+
+**Current scope:** physical button action definitions and defaults. This
+does not yet implement analogue-stick remapping, touch control behaviour,
+or the gameplay input bridge. Those remain game-specific. The universal
+`FrostSpeakerTest` remains unchanged.
+
 ## Building the library
 
 Requirements: **JDK 17**, **Android SDK 35**, and **Gradle 8.11.1**.
