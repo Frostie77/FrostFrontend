@@ -4,7 +4,7 @@
 
 It gives games a compact controller-friendly menu without making them depend on Arcane, Ruffle, or any particular game engine.
 
-> **Status: v0.1.0 development foundation.** The reusable library is newly extracted in concept and **has compiled successfully as an AAR and passed core demo interaction tests on the AYN Odin 2 Portal**. Arcane v0.2.0 still uses its existing, proven in-app FrostFrontend. Nothing in Arcane has been replaced.
+> **Status: v0.5.0-dev-demo (Arcane menu parity restoration; build/device test pending).** The earlier standalone demo and native speaker test passed on the AYN Odin 2 Portal. The revised menu copies Arcane's warning triangle, exit confirmation and settings structure. The production Arcane v0.2.0 remains unchanged.
 
 ## What's included
 
@@ -56,7 +56,7 @@ The host game should pause its own sound while the test plays and call `stop()` 
 After pulling this script once, you can run:
 
 ```powershell
-.\update-demo.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\update-demo.ps1
 ```
 
 This script runs `git pull --ff-only`, builds the latest demo APK and uses `adb install -r` to update the already-installed demo without clearing its saved settings. Your Odin must be connected with USB debugging enabled. It does not touch Arcane.
