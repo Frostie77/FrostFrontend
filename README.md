@@ -49,7 +49,7 @@ Open it using **OPEN FROSTFRONTEND** or the controller **Start** button. Try cha
 
 **Sound** appears immediately after **Graphics** in the five-tab demo. Its **Speaker Test: Left → Right → Both** option uses the reusable `FrostSpeakerTest` Android class to play three 440 Hz stereo tones at the device's media volume. This plays independently of WebView or a game's sound system, so it checks speaker/channel output rather than repairing game audio.
 
-The host game should pause its own sound while the test plays and call `stop()` when its menu closes or Activity is destroyed. The demo does both. This feature has not yet been device-tested; Arcane's already-released APK remains unchanged.
+The host game should pause its own sound while the test plays and call `stop()` when its menu closes or Activity is destroyed. The demo does both. **Odin 2 Portal test: PASS.** The user confirmed the native Left → Right → Both speaker test works correctly through the device speakers. Arcane's already-released APK remains unchanged.
 
 ## One-command demo update
 
@@ -93,7 +93,7 @@ The user tested the separately installed `FrostFrontend Demo` APK on the AYN Odi
 - **PASS:** Touch-only tab switching, setting selection and close (X) button.
 
 This validates the demo host and core library interaction. It does not yet prove compatibility with all third-party ports.
-The original four-tab demo passed device testing. The **new Sound tab, native speaker test and button-mapping interface still need validation** on the Odin 2 Portal.
+The original four-tab demo passed device testing. The **five-tab demo and native Sound speaker test also passed** on the Odin 2 Portal. The newer button-mapping interface still needs device validation.
 
 
 ## Integration
