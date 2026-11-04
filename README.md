@@ -4,7 +4,7 @@
 
 It gives games a compact controller-friendly menu without making them depend on Arcane, Ruffle, or any particular game engine.
 
-> **Status: v0.1.0 development foundation.** The reusable library is newly extracted in concept and **has compiled successfully as an AAR but has not yet been tested in the demo app on an Android device**. Arcane v0.2.0 still uses its existing, proven in-app FrostFrontend. Nothing in Arcane has been replaced.
+> **Status: v0.1.0 development foundation.** The reusable library is newly extracted in concept and **has compiled successfully as an AAR and passed core demo interaction tests on the AYN Odin 2 Portal**. Arcane v0.2.0 still uses its existing, proven in-app FrostFrontend. Nothing in Arcane has been replaced.
 
 ## What's included
 
@@ -51,7 +51,7 @@ The user tested the separately installed `FrostFrontend Demo` APK on the AYN Odi
 - **PASS:** Example settings change and display their new values.
 - **PASS:** Settings persist after closing and reopening the app.
 - **PASS:** Physical controls: L1/R1 tab switching, D-pad navigation, A selection, B close, and Start reopen.
-- **Pending:** Verify touch-only tab switching, setting selection and exit button.
+- **PASS:** Touch-only tab switching, setting selection and close (X) button.
 
 This validates the demo host and core library interaction. It does not yet prove compatibility with all third-party ports.
 
@@ -105,7 +105,7 @@ When the overlay is open, route key events through `frontend.handleKeyEvent(even
 
 ## Roadmap
 
-1. ~~Compile the first library.~~ Build and test the standalone demo APK on the Odin 2 Portal.
+1. ~~Compile the first library and test the standalone demo APK on the Odin 2 Portal.~~ **Done**.
 2. Match the working Arcane menu's appearance and controller behavior.
 3. Add reusable settings adapters and optional touch-control components.
 4. Integrate FrostFrontend into a new test port.
