@@ -14,8 +14,9 @@ It gives games a compact controller-friendly menu without making them depend on 
 - Touch navigation and gamepad navigation: **L1/R1**, **D-pad**, **A**, **B**, **Start**
 - Setting descriptions that appear only for the selected row
 - Host callbacks for setting changes and pausing/resuming gameplay
+- Reusable controller button mapping and physical-button capture (new; device test pending)
 
-Each game provides its **own** tabs, settings, button mappings, saving and update checks. FrostFrontend provides the common interface and navigation.
+Each game provides its **own** tabs, settings and update checks, and connects the mapping model to its own gameplay input. FrostFrontend provides the common interface, navigation and optional reusable button-mapping model.
 
 ## Building the library
 
@@ -42,6 +43,25 @@ gradle :demo:assembleDebug
 Install `demo/build/outputs/apk/debug/demo-debug.apk` on your Android device.
 
 Open it using **OPEN FROSTFRONTEND** or the controller **Start** button. Try changing tabs, selecting settings and closing/reopening the menu. Demo setting values are saved only inside the demo app. The "Check for Updates" row intentionally displays a demo-only message rather than accessing a real release feed.
+
+## New: reusable controller button mapping (in testing)
+
+The library now includes `FrostButtonMapper`, a generic model for physical gamepad assignments. Each game defines its own action names and defaults; the library handles one-button-per-action assignments, conflicts, unassigned actions, reset and `SharedPreferences` persistence.
+
+`FrostFrontendView.beginButtonCapture(...)` temporarily captures the next supported gamepad button (A/B/X/Y, L1/R1/L2/R2, L3/R3). **Start** or Android **Back** cancels without changing a binding. Start, the D-pad and Android Back cannot be assigned as gameplay buttons through this interface. If a button is already mapped, the previous action becomes **Unmapped** instead of silently swapping.
+
+The separate demo now has **Controls → Button Mapping** with seven sample action assignments. These are saved only in the demo app and do not control Arcane's actual game actions. The demo intentionally uses the same package ID for in-place updates, so use `adb install -r` rather than uninstalling the previous demo.
+
+**New-device checks to perform on the Odin:**
+
+1. Open **Controls → Button Mapping** and select any action.
+2. Assign a different physical gamepad button. Confirm the displayed assignment changes.
+3. Reuse a button belonging to another action; the previous action should show **Unmapped**.
+4. Close and reopen the demo; assignments should persist.
+5. Try **Restore Default Buttons** and confirm the originals return.
+6. During button capture, press **Start**; it should cancel rather than assign a button.
+
+This new mapping feature is **not yet device-verified** and is not included in the previously tested demo APK.
 
 ## Odin 2 Portal demo verification
 
