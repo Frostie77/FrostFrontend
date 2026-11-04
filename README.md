@@ -4,7 +4,7 @@
 
 It gives games a compact controller-friendly menu without making them depend on Arcane, Ruffle, or any particular game engine.
 
-> **Status: v0.1.0 development foundation.** The reusable library is newly extracted in concept and **has not yet been compiled or tested on an Android device**. Arcane v0.2.0 still uses its existing, proven in-app FrostFrontend. Nothing in Arcane has been replaced.
+> **Status: v0.1.0 development foundation.** The reusable library is newly extracted in concept and **has compiled successfully as an AAR but has not yet been tested in the demo app on an Android device**. Arcane v0.2.0 still uses its existing, proven in-app FrostFrontend. Nothing in Arcane has been replaced.
 
 ## What's included
 
@@ -28,6 +28,20 @@ gradle :frostfrontend:assembleDebug
 ```
 
 The output is an **Android library (AAR)**, not a standalone APK. A game embeds the library into its own Android project.
+
+## Test the standalone demo APK
+
+The separate `demo/` app exercises FrostFrontend's tabs, touch input, gamepad navigation and saved sample settings. It does **not** contain or change Arcane, its files, or its saved games.
+
+From the repository root (with JDK 17 and `ANDROID_HOME` configured):
+
+```powershell
+gradle :demo:assembleDebug
+```
+
+Install `demo/build/outputs/apk/debug/demo-debug.apk` on your Android device.
+
+Open it using **OPEN FROSTFRONTEND** or the controller **Start** button. Try changing tabs, selecting settings and closing/reopening the menu. Demo setting values are saved only inside the demo app. The "Check for Updates" row intentionally displays a demo-only message rather than accessing a real release feed.
 
 ## Integration
 
@@ -79,7 +93,7 @@ When the overlay is open, route key events through `frontend.handleKeyEvent(even
 
 ## Roadmap
 
-1. Compile the first library and test a small Android demo app.
+1. ~~Compile the first library.~~ Build and test the standalone demo APK on the Odin 2 Portal.
 2. Match the working Arcane menu's appearance and controller behavior.
 3. Add reusable settings adapters and optional touch-control components.
 4. Integrate FrostFrontend into a new test port.
