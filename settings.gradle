@@ -6,4 +6,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = 'FrostFrontend'
-include ':frostfrontend'
+include ':frostfrontend', ':demo'
