@@ -13,7 +13,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import io.github.frostfrontend.FrostFrontendView;
+import io.github.frostfrontend.FrostButtonMapper;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -26,10 +28,22 @@ public final class DemoActivity extends Activity {
     private FrostFrontendView frontend;
     private SharedPreferences preferences;
     private TextView status;
+    private FrostButtonMapper mapper;
+    private boolean showingButtonMap;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         preferences = getSharedPreferences("demo_settings", MODE_PRIVATE);
+        mapper = new FrostButtonMapper(Arrays.asList(
+            new FrostButtonMapper.Action("attack", "Attack", KeyEvent.KEYCODE_BUTTON_R1),
+            new FrostButtonMapper.Action("alt_attack", "Alternate Attack", KeyEvent.KEYCODE_BUTTON_R2),
+            new FrostButtonMapper.Action("weapon", "Switch Weapon", KeyEvent.KEYCODE_BUTTON_A),
+            new FrostButtonMapper.Action("armour", "Swap Armour", KeyEvent.KEYCODE_BUTTON_B),
+            new FrostButtonMapper.Action("throw", "Throw", KeyEvent.KEYCODE_BUTTON_X),
+            new FrostButtonMapper.Action("prev", "Previous Throwable", KeyEvent.KEYCODE_BUTTON_L1),
+            new FrostButtonMapper.Action("next", "Next Throwable", KeyEvent.KEYCODE_BUTTON_Y)
+        ));
+        mapper.load(preferences, "binding_");
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xFF17121F);
@@ -96,7 +110,28 @@ public final class DemoActivity extends Activity {
                             preferences.getBoolean("widescreen", false) ? "Stretch to Screen" : "Original 4:3",
                             "Demo setting only; no game output is altered"));
                     case "controls":
+                        if (showingButtonMap) {
+                            List<FrostFrontendView.Item> mappingRows = new ArrayList<>();
+                            mappingRows.add(new FrostFrontendView.Item(
+                                "map_back", "Back to Controls", "", "Return to other controller settings"));
+                            for (FrostButtonMapper.Action action : mapper.actions()) {
+                                int code = mapper.buttonFor(action.id);
+                                mappingRows.add(new FrostFrontendView.Item(
+                                    "map:" + action.id, action.name,
+                                    FrostButtonMapper.buttonName(code),
+                                    code == FrostButtonMapper.UNMAPPED
+                                        ? "Unmapped! Select to assign a button"
+                                        : "Select and press a controller button to reassign"));
+                            }
+                            mappingRows.add(new FrostFrontendView.Item(
+                                "map_reset", "Restore Default Buttons", "",
+                                "Reset all gamepad assignments"));
+                            return mappingRows;
+                        }
                         return Arrays.asList(
+                            new FrostFrontendView.Item(
+                                "button_mapping", "Button Mapping", "",
+                                "Reassign physical controller buttons"),
                             new FrostFrontendView.Item(
                                 "invert", "Invert Aim Y",
                                 preferences.getBoolean("invert", false) ? "On" : "Off",
@@ -131,6 +166,51 @@ public final class DemoActivity extends Activity {
             }
 
             @Override public void onItemSelected(String tabId, String itemId) {
+                if ("controls".equals(tabId)) {
+                    if ("button_mapping".equals(itemId)) {
+                        showingButtonMap = true;
+                        return;
+                    }
+                    if ("map_back".equals(itemId)) {
+                        showingButtonMap = false;
+                        return;
+                    }
+                    if ("map_reset".equals(itemId)) {
+                        mapper.resetDefaults();
+                        mapper.save(preferences, "binding_");
+                        status.setText("Controller buttons restored to defaults.");
+                        return;
+                    }
+                    if (itemId.startsWith("map:")) {
+                        String actionId = itemId.substring(4);
+                        String actionName = actionId;
+                        for (FrostButtonMapper.Action action : mapper.actions()) {
+                            if (action.id.equals(actionId)) {
+                                actionName = action.name;
+                                break;
+                            }
+                        }
+                        frontend.beginButtonCapture(actionName,
+                            new FrostFrontendView.ButtonCaptureListener() {
+                                @Override public void onCaptured(int code) {
+                                    FrostButtonMapper.Change change = mapper.assign(actionId, code);
+                                    mapper.save(preferences, "binding_");
+                                    status.setText("Assigned " + actionId + " to " +
+                                        FrostButtonMapper.buttonName(code));
+                                    if (change.unmappedAction != null)
+                                        Toast.makeText(DemoActivity.this,
+                                            change.unmappedAction + " is now Unmapped.",
+                                            Toast.LENGTH_LONG).show();
+                                    frontend.refresh();
+                                }
+
+                                @Override public void onCancelled() {
+                                    status.setText("Button assignment cancelled.");
+                                }
+                            });
+                        return;
+                    }
+                }
                 SharedPreferences.Editor edit = preferences.edit();
                 switch (itemId) {
                     case "display":
@@ -168,6 +248,7 @@ public final class DemoActivity extends Activity {
             }
 
             @Override public void onVisibilityChanged(boolean visible) {
+                if (!visible) showingButtonMap = false;
                 status.setText(visible
                     ? "FrostFrontend open — game would be paused."
                     : "FrostFrontend closed — game would resume.");
