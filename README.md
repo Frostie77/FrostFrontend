@@ -48,6 +48,8 @@ inputs. Profile IDs are stable and separate their saved button assignments.
 The demo uses an Arcane-compatible profile with its existing `binding_`
 storage prefix, preserving the user's current demo assignments.
 
+**Odin 2 Portal regression check (v0.6.0-dev-demo): PASS (user reported).** After updating and installing the profile-enabled demo, the user confirmed everything remained the same. Existing behavior and layout appear preserved; testing a second, differently configured profile is still pending.
+
 **Current scope:** physical button action definitions and defaults. This
 does not yet implement analogue-stick remapping, touch control behaviour,
 or the gameplay input bridge. Those remain game-specific. The universal
