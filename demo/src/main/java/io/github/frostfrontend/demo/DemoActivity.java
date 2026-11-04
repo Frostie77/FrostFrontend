@@ -14,6 +14,7 @@ import android.widget.Toast;
 
 import io.github.frostfrontend.FrostFrontendView;
 import io.github.frostfrontend.FrostButtonMapper;
+import io.github.frostfrontend.FrostSpeakerTest;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,6 +30,7 @@ public final class DemoActivity extends Activity {
     private SharedPreferences preferences;
     private TextView status;
     private FrostButtonMapper mapper;
+    private final FrostSpeakerTest speakerTest = new FrostSpeakerTest();
     private boolean showingButtonMap;
 
     @Override public void onCreate(Bundle state) {
@@ -97,6 +99,7 @@ public final class DemoActivity extends Activity {
         root.addView(frontend, new FrameLayout.LayoutParams(-1, -1));
         frontend.setTabs(Arrays.asList(
             new FrostFrontendView.Tab("graphics", "Graphics"),
+            new FrostFrontendView.Tab("sound", "Sound"),
             new FrostFrontendView.Tab("controls", "Controls"),
             new FrostFrontendView.Tab("touch", "Touch Settings"),
             new FrostFrontendView.Tab("updates", "Updates")
@@ -109,6 +112,10 @@ public final class DemoActivity extends Activity {
                             "display", "Display Mode",
                             preferences.getBoolean("widescreen", false) ? "Stretch to Screen" : "Original 4:3",
                             "Demo setting only; no game output is altered"));
+                    case "sound":
+                        return Collections.singletonList(new FrostFrontendView.Item(
+                            "speaker_test", "Speaker Test: Left → Right → Both", "",
+                            "Play three short native stereo tones at your device media volume"));
                     case "controls":
                         if (showingButtonMap) {
                             List<FrostFrontendView.Item> mappingRows = new ArrayList<>();
@@ -166,6 +173,18 @@ public final class DemoActivity extends Activity {
             }
 
             @Override public void onItemSelected(String tabId, String itemId) {
+                if ("sound".equals(tabId) && "speaker_test".equals(itemId)) {
+                    if (speakerTest.start()) {
+                        Toast.makeText(DemoActivity.this,
+                            "Speaker test: LEFT, RIGHT, BOTH. Check your media volume.",
+                            Toast.LENGTH_LONG).show();
+                        status.setText("Native stereo speaker test playing.");
+                    } else {
+                        Toast.makeText(DemoActivity.this,
+                            "Speaker test already playing.", Toast.LENGTH_SHORT).show();
+                    }
+                    return;
+                }
                 if ("controls".equals(tabId)) {
                     if ("button_mapping".equals(itemId)) {
                         showingButtonMap = true;
@@ -248,7 +267,10 @@ public final class DemoActivity extends Activity {
             }
 
             @Override public void onVisibilityChanged(boolean visible) {
-                if (!visible) showingButtonMap = false;
+                if (!visible) {
+                    showingButtonMap = false;
+                    speakerTest.stop();
+                }
                 status.setText(visible
                     ? "FrostFrontend open — game would be paused."
                     : "FrostFrontend closed — game would resume.");
@@ -265,6 +287,11 @@ public final class DemoActivity extends Activity {
             return true;
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    @Override protected void onDestroy() {
+        speakerTest.stop();
+        super.onDestroy();
     }
 
     @Override public void onBackPressed() {
