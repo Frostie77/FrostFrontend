@@ -3,6 +3,7 @@ package io.github.frostfrontend;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -44,12 +45,18 @@ public final class FrostFrontendView extends FrameLayout {
         public final String title;
         public final String value;
         public final String description;
+        public final boolean unmapped;
 
         public Item(String id, String title, String value, String description) {
+            this(id, title, value, description, false);
+        }
+
+        public Item(String id, String title, String value, String description, boolean unmapped) {
             this.id = id;
             this.title = title;
             this.value = value == null ? "" : value;
             this.description = description == null ? "" : description;
+            this.unmapped = unmapped;
         }
     }
 
@@ -94,6 +101,14 @@ public final class FrostFrontendView extends FrameLayout {
     private int tabIndex;
     private int selectedRow;
     private boolean isOpen;
+    private boolean mappingMode;
+    private FrostButtonMapper buttonMapper;
+    private Runnable onLeavingMapping;
+    private Runnable pendingExit;
+    private FrameLayout unmappedWarningLayer;
+    private TextView warningKeepEditing, warningContinue;
+    private int warningSelection;
+
 
     public FrostFrontendView(Context context) {
         super(context);
@@ -123,6 +138,32 @@ public final class FrostFrontendView extends FrameLayout {
         return isOpen;
     }
 
+    /** Called by a host on entry to Arcane's Button Mapping submenu. */
+    public void enterButtonMapping(FrostButtonMapper mapper, Runnable onLeave) {
+        buttonMapper = mapper;
+        mappingMode = true;
+        onLeavingMapping = onLeave;
+    }
+
+    /** Back to Controls, respecting Arcane's unmapped-controls warning. */
+    public void requestMappingBack() {
+        attemptLeaveMapping(() -> {
+            if (onLeavingMapping != null) onLeavingMapping.run();
+            mappingMode = false;
+            refresh();
+        });
+    }
+
+    private void attemptLeaveMapping(Runnable action) {
+        if (unmappedWarningLayer != null) return;
+        if (mappingMode && buttonMapper != null &&
+            !buttonMapper.unmappedActions().isEmpty()) {
+            pendingExit = action;
+            showUnmappedWarning();
+        } else action.run();
+    }
+
+
     public void open() {
         if (isOpen || tabs.isEmpty()) return;
         isOpen = true;
@@ -134,8 +175,16 @@ public final class FrostFrontendView extends FrameLayout {
     }
 
     public void close() {
+        if (!isOpen || unmappedWarningLayer != null) return;
+        if (mappingMode && captureListener != null) cancelButtonCapture();
+        attemptLeaveMapping(this::closeWithoutWarning);
+    }
+
+    private void closeWithoutWarning() {
         if (!isOpen) return;
         cancelButtonCapture();
+        if (mappingMode && onLeavingMapping != null) onLeavingMapping.run();
+        mappingMode = false;
         isOpen = false;
         setVisibility(GONE);
         if (adapter != null) adapter.onVisibilityChanged(false);
@@ -240,6 +289,10 @@ public final class FrostFrontendView extends FrameLayout {
         if (!isOpen) return false;
         if (event.getAction() != KeyEvent.ACTION_DOWN || event.getRepeatCount() > 0)
             return true;
+        if (unmappedWarningLayer != null) {
+            handleUnmappedWarningKey(event.getKeyCode());
+            return true;
+        }
         if (captureListener != null) {
             int code = event.getKeyCode();
             if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_START) {
@@ -274,6 +327,9 @@ public final class FrostFrontendView extends FrameLayout {
                 break;
             case KeyEvent.KEYCODE_BUTTON_B:
             case KeyEvent.KEYCODE_BACK:
+                if (mappingMode) requestMappingBack();
+                else close();
+                break;
             case KeyEvent.KEYCODE_BUTTON_START:
                 close();
                 break;
@@ -285,7 +341,7 @@ public final class FrostFrontendView extends FrameLayout {
 
     private void init() {
         setVisibility(GONE);
-        setBackgroundColor(0xB9000000);
+        setBackgroundColor(0xC9000000);
         setClickable(true);
         setFocusable(true);
         setFocusableInTouchMode(true);
@@ -364,7 +420,7 @@ public final class FrostFrontendView extends FrameLayout {
                 i == tabIndex ? 0xFFD0AA69 : 0xFF564761, 9));
             tab.setContentDescription(tabs.get(i).title + " settings");
             tab.setOnClickListener(v -> {
-                if (captureListener == null) selectTab(index);
+                if (captureListener == null && unmappedWarningLayer == null) selectTab(index);
             });
             LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(0, -1, 1f);
@@ -391,9 +447,14 @@ public final class FrostFrontendView extends FrameLayout {
         }
         for (int i = 0; i < items.size(); i++) {
             final int index = i;
-            OptionRow row = new OptionRow(getContext(), items.get(i));
+            OptionRow row = new OptionRow(items.get(i).unmapped);
+            row.setContent(items.get(i).title +
+                (items.get(i).value.isEmpty() ? "" : ": " + items.get(i).value),
+                items.get(i).description);
+            row.setContentDescription(items.get(i).title +
+                (items.get(i).value.isEmpty() ? "" : ": " + items.get(i).value));
             row.setOnClickListener(v -> {
-                if (captureListener != null) return;
+                if (captureListener != null || unmappedWarningLayer != null) return;
                 selectedRow = index;
                 updateSelection();
                 activateSelection();
@@ -405,12 +466,16 @@ public final class FrostFrontendView extends FrameLayout {
     }
 
     private void selectTab(int newIndex) {
-        if (newIndex < 0 || newIndex >= tabs.size() || newIndex == tabIndex)
-            return;
-        tabIndex = newIndex;
-        selectedRow = 0;
-        scroll.scrollTo(0, 0);
-        refresh();
+        if (newIndex < 0 || newIndex >= tabs.size() || newIndex == tabIndex ||
+            unmappedWarningLayer != null) return;
+        attemptLeaveMapping(() -> {
+            if (mappingMode && onLeavingMapping != null) onLeavingMapping.run();
+            mappingMode = false;
+            tabIndex = newIndex;
+            selectedRow = 0;
+            scroll.scrollTo(0, 0);
+            refresh();
+        });
     }
 
     private void changeTab(int direction) {
@@ -460,8 +525,8 @@ public final class FrostFrontendView extends FrameLayout {
         int w = getWidth() > 0 ? getWidth() : getResources().getDisplayMetrics().widthPixels;
         int h = getHeight() > 0 ? getHeight() : getResources().getDisplayMetrics().heightPixels;
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) panel.getLayoutParams();
-        params.width = Math.max(1, Math.min(dp(820), w - dp(24)));
-        params.height = Math.max(1, Math.min(dp(600), h - dp(24)));
+        params.width = Math.max(1, Math.min(dp(820), w - dp(52)));
+        params.height = Math.max(1, Math.min(dp(600), h - dp(44)));
         panel.setLayoutParams(params);
     }
 
@@ -477,57 +542,229 @@ public final class FrostFrontendView extends FrameLayout {
         return Math.round(n * getResources().getDisplayMetrics().density);
     }
 
-    private final class OptionRow extends LinearLayout {
-        private final TextView details;
+private final class WarningOptionRow extends TextView {
+        private final Paint warningPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path triangle = new Path();
 
-        OptionRow(Context context, Item item) {
-            super(context);
-            setOrientation(VERTICAL);
+        WarningOptionRow() {
+            super(FrostFrontendView.this.getContext());
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float x = getWidth() - dp(22);
+            float y = getHeight() / 2f;
+            float radius = dp(9);
+            triangle.reset();
+            triangle.moveTo(x, y - radius);
+            triangle.lineTo(x + radius, y + radius * 0.8f);
+            triangle.lineTo(x - radius, y + radius * 0.8f);
+            triangle.close();
+            warningPaint.setStyle(Paint.Style.FILL);
+            warningPaint.setColor(0xFFFFC65C);
+            canvas.drawPath(triangle, warningPaint);
+            warningPaint.setColor(0xFF332317);
+            warningPaint.setStrokeWidth(dp(2));
+            warningPaint.setStrokeCap(Paint.Cap.ROUND);
+            canvas.drawLine(x, y - dp(3), x, y + dp(2), warningPaint);
+            canvas.drawCircle(x, y + dp(5), dp(1), warningPaint);
+        }
+    }
+
+    private final class OptionRow extends LinearLayout {
+        final TextView nameView;
+        final TextView valueView;
+        final TextView detailView;
+        private String details = "";
+
+        OptionRow(boolean unmapped) {
+            super(FrostFrontendView.this.getContext());
+            setOrientation(LinearLayout.VERTICAL);
             setPadding(dp(10), dp(5), dp(10), dp(5));
             setMinimumHeight(dp(36));
             setClickable(true);
+            setFocusable(false);
 
-            LinearLayout heading = new LinearLayout(context);
-            heading.setOrientation(HORIZONTAL);
-            heading.setGravity(Gravity.CENTER_VERTICAL);
-            addView(heading, new LinearLayout.LayoutParams(-1, -2));
+            LinearLayout top = new LinearLayout(FrostFrontendView.this.getContext());
+            top.setOrientation(LinearLayout.HORIZONTAL);
+            top.setGravity(Gravity.CENTER_VERTICAL);
+            addView(top, new LinearLayout.LayoutParams(-1, -2));
 
-            TextView title = new TextView(context);
-            title.setText(item.title);
-            title.setTextSize(14);
-            title.setTextColor(TEXT);
-            title.setSingleLine(true);
-            title.setEllipsize(TextUtils.TruncateAt.END);
-            heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
+            nameView = new TextView(FrostFrontendView.this.getContext());
+            nameView.setTextSize(14);
+            nameView.setTextColor(0xFFECE7EF);
+            nameView.setGravity(Gravity.CENTER_VERTICAL);
+            nameView.setSingleLine(true);
+            nameView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            top.addView(nameView, new LinearLayout.LayoutParams(0, -2, 1f));
 
-            if (!item.value.isEmpty()) {
-                TextView value = new TextView(context);
-                value.setText(item.value);
-                value.setTextSize(13);
-                value.setTextColor(0xFFE0CCAA);
-                value.setSingleLine(true);
-                value.setGravity(Gravity.END);
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-                lp.leftMargin = dp(9);
-                heading.addView(value, lp);
+            valueView = new TextView(FrostFrontendView.this.getContext());
+            valueView.setTextSize(13);
+            valueView.setTextColor(0xFFE0CCAA);
+            valueView.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+            valueView.setSingleLine(true);
+            valueView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-2, -2);
+            vlp.leftMargin = dp(9);
+            top.addView(valueView, vlp);
+
+            if (unmapped) {
+                TextView warning = new WarningOptionRow();
+                top.addView(warning, new LinearLayout.LayoutParams(dp(30), dp(29)));
             }
 
-            details = new TextView(context);
-            details.setText(item.description);
-            details.setTextSize(11);
-            details.setTextColor(SUBTLE);
-            details.setPadding(dp(2), dp(2), 0, 0);
-            details.setVisibility(GONE);
-            addView(details, new LinearLayout.LayoutParams(-1, -2));
-            setContentDescription(item.title + (item.value.isEmpty() ? "" : ": " + item.value));
+            detailView = new TextView(FrostFrontendView.this.getContext());
+            detailView.setTextSize(11);
+            detailView.setTextColor(0xFFBDB1C8);
+            detailView.setPadding(dp(2), dp(2), 0, 0);
+            detailView.setVisibility(View.GONE);
+            addView(detailView, new LinearLayout.LayoutParams(-1, -2));
         }
 
-        void setHighlighted(boolean highlighted) {
-            setBackground(background(highlighted ? SELECTED : NORMAL,
-                highlighted ? 0xFFC09A62 : 0, 8));
-            details.setVisibility(highlighted && details.length() > 0 ? VISIBLE : GONE);
+        void setContent(String text, String detail) {
+            int sep = text.indexOf(": ");
+            String title = sep < 0 ? text : text.substring(0, sep);
+            String value = sep < 0 ? "" : text.substring(sep + 2);
+            nameView.setText(title);
+            valueView.setText(value);
+            valueView.setVisibility(value.isEmpty() ? View.GONE : View.VISIBLE);
+            details = detail;
+            detailView.setText(detail);
+        }
+
+        void setHighlighted(boolean selected) {
+            nameView.setTextColor(selected ? 0xFFFFE1A2 : 0xFFECE7EF);
+            valueView.setTextColor(selected ? 0xFFFFE1A2 : 0xFFE0CCAA);
+            detailView.setVisibility(selected && !details.isEmpty()
+                ? View.VISIBLE : View.GONE);
+            setBackground(background(
+                selected ? 0xFF433147 : 0x55201A26,
+                selected ? 0xFFD0AA69 : 0x00000000, 8));
         }
     }
+
+    private TextView makeText(String label, int size, int color, int fill) {
+        TextView text = new TextView(getContext());
+        text.setText(label);
+        text.setTextSize(size);
+        text.setTextColor(color);
+        text.setGravity(Gravity.CENTER_VERTICAL);
+        text.setBackground(background(fill, 0, 9));
+        text.setPadding(dp(14), dp(10), dp(14), dp(10));
+        return text;
+    }
+
+    private void dismissUnmappedWarning() {
+        if (unmappedWarningLayer != null) removeView(unmappedWarningLayer);
+        unmappedWarningLayer = null;
+        warningKeepEditing = warningContinue = null;
+        requestFocus();
+    }
+
+    private void confirmUnmappedWarning(boolean continueAnyway) {
+        if (unmappedWarningLayer == null) return;
+        dismissUnmappedWarning();
+        Runnable pending = pendingExit;
+        pendingExit = null;
+        if (continueAnyway && pending != null) pending.run();
+    }
+
+    private void selectWarningChoice(int index) {
+        warningSelection = Math.max(0, Math.min(1, index));
+        if (warningKeepEditing != null && warningContinue != null) {
+            TextView[] choices = {warningKeepEditing, warningContinue};
+            for (int i = 0; i < choices.length; i++) {
+                boolean selected = i == warningSelection;
+                choices[i].setTextColor(selected ? 0xFFFFE1A2 : 0xFFEAE7EA);
+                choices[i].setBackground(background(
+                    selected ? 0xFF433147 : 0xFF292331,
+                    selected ? 0xFFD0AA69 : 0xFF615064, 9));
+            }
+        }
+    }
+
+
+    private void showUnmappedWarning() {
+        if (unmappedWarningLayer != null || FrostFrontendView.this == null) return;
+        StringBuilder names = new StringBuilder();
+        for (String actionName : buttonMapper.unmappedActions()) {
+            if (names.length() > 0) names.append("\\n");
+            names.append("• ").append(actionName);
+        }
+        if (names.length() == 0) {
+            if (pendingExit != null) pendingExit.run();
+            return;
+        }
+
+        
+        warningSelection = 0;
+        unmappedWarningLayer = new FrameLayout(getContext());
+        unmappedWarningLayer.setBackgroundColor(0x99000000);
+        unmappedWarningLayer.setClickable(true);
+        unmappedWarningLayer.setFocusableInTouchMode(true);
+        FrostFrontendView.this.addView(unmappedWarningLayer, new FrameLayout.LayoutParams(-1, -1));
+
+        LinearLayout dialog = new LinearLayout(getContext());
+        dialog.setOrientation(LinearLayout.VERTICAL);
+        dialog.setPadding(dp(20), dp(17), dp(20), dp(19));
+        dialog.setBackground(background(0xFF251D2D, 0xFFD0AA69, 12));
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        FrameLayout.LayoutParams dialogParams = new FrameLayout.LayoutParams(
+            Math.min(dp(460), screenW - dp(56)), -2, Gravity.CENTER);
+        unmappedWarningLayer.addView(dialog, dialogParams);
+
+        TextView title = makeText("UNMAPPED CONTROLS", 19, 0xFFFFC65C, 0x00000000);
+        title.setGravity(Gravity.CENTER);
+        dialog.addView(title, new LinearLayout.LayoutParams(-1, -2));
+
+        TextView message = makeText(
+            "These actions have no button assigned:\n\n" + names +
+            "\n\nYou can continue, but those actions won't work in-game.",
+            14, 0xFFEAE7EA, 0x00000000);
+        dialog.addView(message, new LinearLayout.LayoutParams(-1, -2));
+
+        LinearLayout actions = new LinearLayout(getContext());
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-1, -2);
+        actionParams.topMargin = dp(10);
+        dialog.addView(actions, actionParams);
+        warningKeepEditing = makeText("Keep Editing", 14, 0xFFFFFFFF, 0xFF433147);
+        warningContinue = makeText("Continue Anyway", 14, 0xFFFFFFFF, 0xFF292331);
+        for (int i = 0; i < 2; i++) {
+            final int index = i;
+            TextView choice = i == 0 ? warningKeepEditing : warningContinue;
+            choice.setGravity(Gravity.CENTER);
+            choice.setOnClickListener(v -> confirmUnmappedWarning(index == 1));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(47), 1f);
+            if (i == 1) lp.leftMargin = dp(9);
+            actions.addView(choice, lp);
+        }
+        selectWarningChoice(0);
+        unmappedWarningLayer.requestFocus();
+    }
+
+
+    private boolean handleUnmappedWarningKey(int code) {
+        switch (code) {
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+            case KeyEvent.KEYCODE_DPAD_UP:
+                selectWarningChoice(0); break;
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+                selectWarningChoice(1); break;
+            case KeyEvent.KEYCODE_DPAD_CENTER:
+            case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_BUTTON_A:
+                confirmUnmappedWarning(warningSelection == 1); break;
+            case KeyEvent.KEYCODE_BUTTON_B:
+            case KeyEvent.KEYCODE_BACK:
+            case KeyEvent.KEYCODE_BUTTON_START:
+                confirmUnmappedWarning(false); break;
+            default: break;
+        }
+        return true;
+    }
+
 
     private final class ExitIcon extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
