@@ -51,6 +51,14 @@ public final class FrostFrontendView extends FrameLayout {
         }
     }
 
+    public interface ButtonCaptureListener {
+        /** A supported physical gamepad button was pressed. */
+        void onCaptured(int keyCode);
+
+        /** Start or Android Back was pressed before a button was assigned. */
+        void onCancelled();
+    }
+
     public interface Adapter {
         /** Called whenever FrostFrontend needs the current settings for a tab. */
         List<Item> itemsForTab(String tabId);
@@ -77,6 +85,8 @@ public final class FrostFrontendView extends FrameLayout {
     private LinearLayout tabStrip;
     private LinearLayout rowContainer;
     private ScrollView scroll;
+    private TextView captureBanner;
+    private ButtonCaptureListener captureListener;
     private int tabIndex;
     private int selectedRow;
     private boolean isOpen;
@@ -121,6 +131,7 @@ public final class FrostFrontendView extends FrameLayout {
 
     public void close() {
         if (!isOpen) return;
+        cancelButtonCapture();
         isOpen = false;
         setVisibility(GONE);
         if (adapter != null) adapter.onVisibilityChanged(false);
@@ -129,6 +140,34 @@ public final class FrostFrontendView extends FrameLayout {
     public void toggle() {
         if (isOpen) close();
         else open();
+    }
+
+    /**
+     * Start listening for a physical controller button to bind. During capture,
+     * gamepad navigation is suspended. Start / Android Back cancels capture.
+     * The B button is assignable and will NOT close the menu during capture.
+     */
+    public void beginButtonCapture(String actionName, ButtonCaptureListener listener) {
+        if (!isOpen || listener == null)
+            throw new IllegalStateException("Open FrostFrontend before binding a button");
+        if (captureListener != null) cancelButtonCapture();
+        captureListener = listener;
+        captureBanner.setText("ASSIGN " + actionName.toUpperCase(java.util.Locale.ROOT)
+            + "  ·  Press A/B/X/Y, L1/L2/R1/R2 or L3/R3  ·  Start to cancel");
+        captureBanner.setVisibility(VISIBLE);
+        requestFocus();
+    }
+
+    public boolean isCapturingButton() {
+        return captureListener != null;
+    }
+
+    /** Cancel a pending binding without changing the current assignments. */
+    public void cancelButtonCapture() {
+        ButtonCaptureListener old = captureListener;
+        captureListener = null;
+        if (captureBanner != null) captureBanner.setVisibility(GONE);
+        if (old != null) old.onCancelled();
     }
 
     /** Read the host's latest values and update the displayed tab and rows. */
@@ -146,6 +185,19 @@ public final class FrostFrontendView extends FrameLayout {
         if (!isOpen) return false;
         if (event.getAction() != KeyEvent.ACTION_DOWN || event.getRepeatCount() > 0)
             return true;
+        if (captureListener != null) {
+            int code = event.getKeyCode();
+            if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_START) {
+                cancelButtonCapture();
+            } else if (FrostButtonMapper.isAssignableButton(code)) {
+                ButtonCaptureListener selected = captureListener;
+                captureListener = null;
+                captureBanner.setVisibility(GONE);
+                selected.onCaptured(code);
+                if (isOpen) refresh();
+            }
+            return true;
+        }
         switch (event.getKeyCode()) {
             case KeyEvent.KEYCODE_BUTTON_L1:
             case KeyEvent.KEYCODE_PAGE_UP:
@@ -208,6 +260,19 @@ public final class FrostFrontendView extends FrameLayout {
         FrameLayout.LayoutParams exitParams = new FrameLayout.LayoutParams(
             dp(33), dp(33), Gravity.END | Gravity.CENTER_VERTICAL);
         header.addView(exit, exitParams);
+
+        captureBanner = new TextView(getContext());
+        captureBanner.setTextSize(14);
+        captureBanner.setTextColor(0xFFFFE6AD);
+        captureBanner.setGravity(Gravity.CENTER);
+        captureBanner.setPadding(dp(10), dp(7), dp(10), dp(7));
+        captureBanner.setBackground(background(0xFF48323F, GOLD, 7));
+        captureBanner.setVisibility(GONE);
+        captureBanner.setContentDescription("Waiting for a controller button; Start cancels");
+        captureBanner.setOnClickListener(v -> cancelButtonCapture());
+        LinearLayout.LayoutParams captureParams = new LinearLayout.LayoutParams(-1, -2);
+        captureParams.bottomMargin = dp(6);
+        panel.addView(captureBanner, captureParams);
 
         scroll = new ScrollView(getContext());
         scroll.setFillViewport(false);
