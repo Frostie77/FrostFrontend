@@ -8,6 +8,8 @@ import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.InputDevice;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -86,6 +88,8 @@ public final class FrostFrontendView extends FrameLayout {
     private LinearLayout rowContainer;
     private ScrollView scroll;
     private TextView captureBanner;
+    private TextView mappingNotice;
+    private float leftTriggerAxis, rightTriggerAxis;
     private ButtonCaptureListener captureListener;
     private int tabIndex;
     private int selectedRow;
@@ -152,6 +156,9 @@ public final class FrostFrontendView extends FrameLayout {
             throw new IllegalStateException("Open FrostFrontend before binding a button");
         if (captureListener != null) cancelButtonCapture();
         captureListener = listener;
+        leftTriggerAxis = 0f;
+        rightTriggerAxis = 0f;
+        clearMappingNotice();
         captureBanner.setText("ASSIGN " + actionName.toUpperCase(java.util.Locale.ROOT)
             + "  ·  Press A/B/X/Y, L1/L2/R1/R2 or L3/R3  ·  Start to cancel");
         captureBanner.setVisibility(VISIBLE);
@@ -160,6 +167,54 @@ public final class FrostFrontendView extends FrameLayout {
 
     public boolean isCapturingButton() {
         return captureListener != null;
+    }
+
+    /** Display an in-menu confirmation after a change or mapping conflict. */
+    public void showMappingNotice(String notice) {
+        if (mappingNotice == null) return;
+        if (notice == null || notice.isEmpty()) {
+            clearMappingNotice();
+            return;
+        }
+        mappingNotice.setText(notice);
+        mappingNotice.setVisibility(VISIBLE);
+    }
+
+    public void clearMappingNotice() {
+        if (mappingNotice != null) mappingNotice.setVisibility(GONE);
+    }
+
+    /**
+     * Some Android gamepads report L2/R2 as analogue axes rather than key
+     * events. The host Activity can pass its generic motion events here.
+     * Return false outside capture so the host game still receives them.
+     */
+    public boolean handleGenericMotionEvent(MotionEvent event) {
+        if (!isOpen || captureListener == null) return false;
+        if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) == 0 ||
+            event.getActionMasked() != MotionEvent.ACTION_MOVE) return false;
+        float left = Math.max(event.getAxisValue(MotionEvent.AXIS_LTRIGGER),
+            event.getAxisValue(MotionEvent.AXIS_BRAKE));
+        float right = Math.max(event.getAxisValue(MotionEvent.AXIS_RTRIGGER),
+            event.getAxisValue(MotionEvent.AXIS_GAS));
+        // Rising edge only; avoid repeated captures while a trigger is held.
+        if (left >= 0.75f && leftTriggerAxis < 0.75f) {
+            completeButtonCapture(KeyEvent.KEYCODE_BUTTON_L2);
+        } else if (right >= 0.75f && rightTriggerAxis < 0.75f) {
+            completeButtonCapture(KeyEvent.KEYCODE_BUTTON_R2);
+        }
+        leftTriggerAxis = left;
+        rightTriggerAxis = right;
+        return true;
+    }
+
+    private void completeButtonCapture(int code) {
+        ButtonCaptureListener selected = captureListener;
+        if (selected == null) return;
+        captureListener = null;
+        captureBanner.setVisibility(GONE);
+        selected.onCaptured(code);
+        if (isOpen) refresh();
     }
 
     /** Cancel a pending binding without changing the current assignments. */
@@ -190,11 +245,10 @@ public final class FrostFrontendView extends FrameLayout {
             if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_START) {
                 cancelButtonCapture();
             } else if (FrostButtonMapper.isAssignableButton(code)) {
-                ButtonCaptureListener selected = captureListener;
-                captureListener = null;
-                captureBanner.setVisibility(GONE);
-                selected.onCaptured(code);
-                if (isOpen) refresh();
+                completeButtonCapture(code);
+            } else {
+                captureBanner.setText("Button not assignable (" + code +
+                    "). Choose A/B/X/Y, L1/L2/R1/R2, L3/R3 or Start to cancel.");
             }
             return true;
         }
@@ -273,6 +327,17 @@ public final class FrostFrontendView extends FrameLayout {
         LinearLayout.LayoutParams captureParams = new LinearLayout.LayoutParams(-1, -2);
         captureParams.bottomMargin = dp(6);
         panel.addView(captureBanner, captureParams);
+
+        mappingNotice = new TextView(getContext());
+        mappingNotice.setTextSize(14);
+        mappingNotice.setTextColor(0xFFFFE6AD);
+        mappingNotice.setGravity(Gravity.CENTER);
+        mappingNotice.setPadding(dp(10), dp(7), dp(10), dp(7));
+        mappingNotice.setBackground(background(0xFF3B2939, GOLD, 7));
+        mappingNotice.setVisibility(GONE);
+        LinearLayout.LayoutParams noticeParams = new LinearLayout.LayoutParams(-1, -2);
+        noticeParams.bottomMargin = dp(6);
+        panel.addView(mappingNotice, noticeParams);
 
         scroll = new ScrollView(getContext());
         scroll.setFillViewport(false);
