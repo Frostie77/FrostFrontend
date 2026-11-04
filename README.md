@@ -8,7 +8,7 @@ It gives games a compact controller-friendly menu without making them depend on 
 
 ## What's included
 
-- **Android library module**: \`frostfrontend/\`
+- **Android library module**: `frostfrontend/`
 - Compact dark menu with gold highlights, a top navigation bar and a dedicated close button
 - Tabs and setting rows supplied by each host game
 - Touch navigation and gamepad navigation: **L1/R1**, **D-pad**, **A**, **B**, **Start**
@@ -23,23 +23,23 @@ Requirements: **JDK 17**, **Android SDK 35**, and **Gradle 8.11.1**.
 
 From the repository root:
 
-\`\`\`powershell
+```powershell
 gradle :frostfrontend:assembleDebug
-\`\`\`
+```
 
 The output is an **Android library (AAR)**, not a standalone APK. A game embeds the library into its own Android project.
 
 ## Integration
 
-Add the \`frostfrontend\` module to the host game's Gradle project and include:
+Add the `frostfrontend` module to the host game's Gradle project and include:
 
-\`\`\`gradle
+```gradle
 implementation project(':frostfrontend')
-\`\`\`
+```
 
 Then create and add the overlay above your game content. The Android Activity supplies the tabs and the values:
 
-\`\`\`java
+```java
 FrostFrontendView frontend = new FrostFrontendView(this);
 root.addView(frontend, new FrameLayout.LayoutParams(-1, -1));
 
@@ -69,11 +69,11 @@ frontend.setAdapter(new FrostFrontendView.Adapter() {
         // Pause gameplay when visible; resume when hidden.
     }
 });
-\`\`\`
+```
 
-Open with \`frontend.open()\` and close with \`frontend.close()\`. Call \`frontend.refresh()\` when values change.
+Open with `frontend.open()` and close with `frontend.close()`. Call `frontend.refresh()` when values change.
 
-When the overlay is open, route key events through \`frontend.handleKeyEvent(event)\` **before** game input. The host should use its Start/menu button to open FrostFrontend when it is closed.
+When the overlay is open, route key events through `frontend.handleKeyEvent(event)` **before** game input. The host should use its Start/menu button to open FrostFrontend when it is closed.
 
 **Important:** This first library covers the **settings UI**, not a game's touch joystick, aiming bridge, save system, audio output, or updater. Those remain game-specific until reusable interfaces are designed and tested.
 
