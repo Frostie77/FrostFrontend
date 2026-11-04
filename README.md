@@ -194,4 +194,4 @@ Created for Android game port projects and initially developed through the *Arca
 
 This library contains **no original game SWFs or copyrighted game assets**. The Arcane release project is separate: [Arcane Android](https://github.com/Frostie77/Arcane-The-Armor-Collector).
 
-A public redistribution license has **not yet been selected**.
+FrostFrontend is released under the **MIT License**. See [LICENSE](LICENSE). Copyright © 2026 Frostie77. Keep the licence and copyright notice with copies or substantial portions of the software.
