@@ -192,6 +192,7 @@ public final class FrostFrontendView extends FrameLayout {
         attemptLeaveMapping(() -> {
             if (onLeavingMapping != null) onLeavingMapping.run();
             mappingMode = false;
+            selectedRow = 0;
             refresh();
         });
     }
@@ -430,13 +431,12 @@ public final class FrostFrontendView extends FrameLayout {
         captureBanner.setTextSize(14);
         captureBanner.setTextColor(0xFFFFE6AD);
         captureBanner.setGravity(Gravity.CENTER);
-        captureBanner.setPadding(dp(10), dp(7), dp(10), dp(7));
-        captureBanner.setBackground(background(0xFF48323F, GOLD, 7));
+        captureBanner.setPadding(dp(14), dp(10), dp(14), dp(10));
+        captureBanner.setBackground(background(0xFF48323F, 0, 9));
         captureBanner.setVisibility(GONE);
         captureBanner.setContentDescription("Waiting for a controller button; Start cancels");
         captureBanner.setOnClickListener(v -> cancelButtonCapture());
-        LinearLayout.LayoutParams captureParams = new LinearLayout.LayoutParams(-1, -2);
-        captureParams.bottomMargin = dp(6);
+        LinearLayout.LayoutParams captureParams = new LinearLayout.LayoutParams(-1, dp(38));
         mappingNotice = new TextView(getContext());
         mappingNotice.setTextSize(14);
         mappingNotice.setTextColor(0xFFFFE6AD);
@@ -488,6 +488,7 @@ public final class FrostFrontendView extends FrameLayout {
     }
 
     private void renderRows() {
+        int restoreScroll = scroll.getScrollY();
         rowContainer.removeAllViews();
         rowViews.clear();
         List<Item> supplied = adapter == null
@@ -524,6 +525,9 @@ public final class FrostFrontendView extends FrameLayout {
             rowViews.add(row);
         }
         updateSelection();
+        scroll.post(() -> {
+            if (isOpen) scroll.scrollTo(0, restoreScroll);
+        });
     }
 
     private void selectTab(int newIndex) {
