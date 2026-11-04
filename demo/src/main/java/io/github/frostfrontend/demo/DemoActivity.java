@@ -15,6 +15,7 @@ import android.widget.Toast;
 
 import io.github.frostfrontend.FrostFrontendView;
 import io.github.frostfrontend.FrostButtonMapper;
+import io.github.frostfrontend.FrostControlProfile;
 import io.github.frostfrontend.FrostSpeakerTest;
 
 import java.util.ArrayList;
@@ -31,6 +32,18 @@ public final class DemoActivity extends Activity {
     private SharedPreferences preferences;
     private TextView status;
     private FrostButtonMapper mapper;
+    // This profile is supplied by the host, not hardcoded into the library.
+    // Existing "binding_" preferences are retained on demo upgrades.
+    private static final FrostControlProfile CONTROL_PROFILE = FrostControlProfile.of(
+        "arcane-demo",
+        new FrostButtonMapper.Action("attack", "Attack", KeyEvent.KEYCODE_BUTTON_R2),
+        new FrostButtonMapper.Action("alt_attack", "Alternate Attack", KeyEvent.KEYCODE_BUTTON_R1),
+        new FrostButtonMapper.Action("weapon", "Switch Weapon", KeyEvent.KEYCODE_BUTTON_A),
+        new FrostButtonMapper.Action("armour", "Swap Armour", KeyEvent.KEYCODE_BUTTON_B),
+        new FrostButtonMapper.Action("throw", "Throw", KeyEvent.KEYCODE_BUTTON_X),
+        new FrostButtonMapper.Action("prev", "Previous Throwable", KeyEvent.KEYCODE_BUTTON_Y),
+        new FrostButtonMapper.Action("next", "Next Throwable", KeyEvent.KEYCODE_BUTTON_L1)
+    );
     private final FrostSpeakerTest speakerTest = new FrostSpeakerTest();
     private boolean showingButtonMap, showingMovementSettings;
     private static final float[] AIM_SPEEDS = {0.6f, 0.9f, 1.2f, 1.5f, 1.8f};
@@ -43,16 +56,7 @@ public final class DemoActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         preferences = getSharedPreferences("demo_settings", MODE_PRIVATE);
-        mapper = new FrostButtonMapper(Arrays.asList(
-            new FrostButtonMapper.Action("attack", "Attack", KeyEvent.KEYCODE_BUTTON_R2),
-            new FrostButtonMapper.Action("alt_attack", "Alternate Attack", KeyEvent.KEYCODE_BUTTON_R1),
-            new FrostButtonMapper.Action("weapon", "Switch Weapon", KeyEvent.KEYCODE_BUTTON_A),
-            new FrostButtonMapper.Action("armour", "Swap Armour", KeyEvent.KEYCODE_BUTTON_B),
-            new FrostButtonMapper.Action("throw", "Throw", KeyEvent.KEYCODE_BUTTON_X),
-            new FrostButtonMapper.Action("prev", "Previous Throwable", KeyEvent.KEYCODE_BUTTON_Y),
-            new FrostButtonMapper.Action("next", "Next Throwable", KeyEvent.KEYCODE_BUTTON_L1)
-        ));
-        mapper.load(preferences, "binding_");
+        mapper = CONTROL_PROFILE.load(preferences, "binding_");
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xFF17121F);
