@@ -31,6 +31,7 @@ public final class DemoActivity extends Activity {
     private FrostFrontendView frontend;
     private SharedPreferences preferences;
     private TextView status;
+    private DemoTouchControls touchControls;
     private FrostButtonMapper mapper;
     // This profile is supplied by the host, not hardcoded into the library.
     // Existing "binding_" preferences are retained on demo upgrades.
@@ -106,8 +107,11 @@ public final class DemoActivity extends Activity {
 
         root.addView(welcome, new FrameLayout.LayoutParams(-1, -1));
 
+        touchControls = new DemoTouchControls(this, preferences);
+        root.addView(touchControls, new FrameLayout.LayoutParams(-1, -1));
         frontend = new FrostFrontendView(this);
         root.addView(frontend, new FrameLayout.LayoutParams(-1, -1));
+        frontend.setTouchControls(touchControls);
         frontend.setUpdateInfo("FrostFrontend Demo v0.5.0", "Not checked",
             "Standalone demo; update checks belong to the host game.");
         frontend.setTabs(Arrays.asList(
@@ -328,9 +332,13 @@ public final class DemoActivity extends Activity {
                     default: return;
                 }
                 edit.apply();
+                if ("touch_reset".equals(itemId) || "touch_inset".equals(itemId)) touchControls.resetLayout();
+                touchControls.invalidate();
             }
 
             @Override public void onVisibilityChanged(boolean visible) {
+                touchControls.releaseAll();
+                touchControls.setVisibility(visible ? android.view.View.GONE : android.view.View.VISIBLE);
                 if (!visible) {
                     showingButtonMap = false;
                     showingMovementSettings = false;

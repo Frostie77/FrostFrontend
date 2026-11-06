@@ -14,6 +14,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -30,6 +31,82 @@ import java.util.List;
  * dependency is required.
  */
 public final class FrostFrontendView extends FrameLayout {
+    public static final String TOUCH_LAYOUT_ITEM_ID = "frost_touch_layout";
+    private FrostTouchControls touchControls;
+    private FrameLayout touchEditorLayer;
+    private ViewGroup touchParent;
+    private ViewGroup.LayoutParams touchParentParams;
+    private int touchParentIndex, touchPreviousVisibility;
+
+    /** Registers a port's controls and adds the shared editor to its Touch Settings tab. */
+    public void setTouchControls(FrostTouchControls controls) {
+        if (isEditingTouchLayout()) throw new IllegalStateException("Finish editing before replacing touch controls");
+        touchControls = controls;
+        refresh();
+    }
+
+    public boolean isEditingTouchLayout() { return touchEditorLayer != null; }
+
+    public void editTouchLayout() {
+        if (!isOpen || touchControls == null || isEditingTouchLayout() || mappingMode ||
+                captureListener != null || unmappedWarningLayer != null) return;
+        if (!(touchControls.getParent() instanceof ViewGroup))
+            throw new IllegalStateException("Add touch controls to the host view before editing");
+        touchParent = (ViewGroup) touchControls.getParent();
+        touchParentIndex = touchParent.indexOfChild(touchControls);
+        touchParentParams = touchControls.getLayoutParams();
+        touchPreviousVisibility = touchControls.getVisibility();
+        touchParent.removeView(touchControls);
+        touchEditorLayer = new FrameLayout(getContext());
+        addView(touchEditorLayer, new FrameLayout.LayoutParams(-1, -1));
+        touchEditorLayer.addView(touchControls, new FrameLayout.LayoutParams(-1, -1));
+        panel.setVisibility(GONE);
+        setBackgroundColor(0);
+        touchControls.beginEditing();
+        touchControls.setVisibility(VISIBLE);
+
+        LinearLayout toolbar = new LinearLayout(getContext());
+        toolbar.setOrientation(LinearLayout.VERTICAL);
+        toolbar.setGravity(Gravity.CENTER);
+        toolbar.setBackgroundColor(0xED211D26);
+        TextView instructions = new TextView(getContext());
+        instructions.setText("Drag each control to move it");
+        instructions.setTextColor(TEXT); instructions.setTextSize(14);
+        toolbar.addView(instructions);
+        LinearLayout actions = new LinearLayout(getContext());
+        actions.setGravity(Gravity.CENTER);
+        String[] labels = {"Save", "Cancel", "Reset"};
+        for (int i = 0; i < labels.length; i++) {
+            Button button = new Button(getContext()); button.setText(labels[i]);
+            final int action = i;
+            button.setOnClickListener(v -> {
+                if (action == 2) touchControls.resetLayout();
+                else finishTouchLayoutEdit(action == 0);
+            });
+            actions.addView(button);
+        }
+        toolbar.addView(actions);
+        touchEditorLayer.addView(toolbar, new FrameLayout.LayoutParams(-1,
+            dp(FrostTouchControls.EDITOR_TOOLBAR_HEIGHT_DP), Gravity.TOP));
+        requestFocus();
+        // isOpen and the adapter's existing paused state remain true throughout editing.
+    }
+
+    public void finishTouchLayoutEdit(boolean save) {
+        if (!isEditingTouchLayout()) return;
+        touchControls.finishEditing(save);
+        touchEditorLayer.removeView(touchControls);
+        removeView(touchEditorLayer);
+        touchEditorLayer = null;
+        touchParent.addView(touchControls, Math.min(touchParentIndex, touchParent.getChildCount()), touchParentParams);
+        touchControls.setVisibility(touchPreviousVisibility);
+        touchParent = null; touchParentParams = null;
+        panel.setVisibility(VISIBLE);
+        setBackgroundColor(0xC9000000);
+        menuAxisLatch = 0;
+        refresh();
+        requestFocus();
+    }
     public static final class Tab {
         public final String id;
         public final String title;
@@ -120,6 +197,7 @@ public final class FrostFrontendView extends FrameLayout {
     }
 
     public void back() {
+        if (isEditingTouchLayout()) { finishTouchLayoutEdit(false); return; }
         if (unmappedWarningLayer != null) {
             confirmUnmappedWarning(false);
             return;
@@ -227,6 +305,7 @@ public final class FrostFrontendView extends FrameLayout {
 
     private void closeWithoutWarning() {
         if (!isOpen) return;
+        if (isEditingTouchLayout()) finishTouchLayoutEdit(false);
         cancelButtonCapture();
         if (mappingMode && onLeavingMapping != null) onLeavingMapping.run();
         mappingMode = false;
@@ -290,6 +369,7 @@ public final class FrostFrontendView extends FrameLayout {
      */
     public boolean handleGenericMotionEvent(MotionEvent event) {
         if (!isOpen) return false;
+        if (isEditingTouchLayout()) return true;
         if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) == 0 ||
             event.getActionMasked() != MotionEvent.ACTION_MOVE) return false;
 
@@ -349,7 +429,7 @@ public final class FrostFrontendView extends FrameLayout {
 
     /** Read the host's latest values and update the displayed tab and rows. */
     public void refresh() {
-        if (!isOpen || tabs.isEmpty()) return;
+        if (!isOpen || tabs.isEmpty() || isEditingTouchLayout()) return;
         renderTabs();
         renderRows();
     }
@@ -362,6 +442,13 @@ public final class FrostFrontendView extends FrameLayout {
         if (!isOpen) return false;
         if (event.getAction() != KeyEvent.ACTION_DOWN || event.getRepeatCount() > 0)
             return true;
+        if (isEditingTouchLayout()) {
+            int code = event.getKeyCode();
+            if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_B || code == KeyEvent.KEYCODE_ESCAPE)
+                finishTouchLayoutEdit(false);
+            else if (code == KeyEvent.KEYCODE_BUTTON_START) finishTouchLayoutEdit(true);
+            return true;
+        }
         if (unmappedWarningLayer != null) {
             handleUnmappedWarningKey(event.getKeyCode());
             return true;
@@ -525,7 +612,13 @@ public final class FrostFrontendView extends FrameLayout {
         List<Item> supplied = adapter == null
             ? Collections.emptyList()
             : adapter.itemsForTab(tabs.get(tabIndex).id);
-        items = supplied == null ? Collections.emptyList() : new ArrayList<>(supplied);
+        items = supplied == null ? new ArrayList<>() : new ArrayList<>(supplied);
+        if (touchControls != null && "touch".equals(tabs.get(tabIndex).id)) {
+            int insert = items.size();
+            for (int i = 0; i < items.size(); i++) if ("touch_reset".equals(items.get(i).id)) { insert = i; break; }
+            items.add(insert, new Item(TOUCH_LAYOUT_ITEM_ID, "Edit Touch Layout", "",
+                "Drag each button and movement pad, then save"));
+        }
         selectedRow = Math.max(0, Math.min(selectedRow, items.size() - 1));
         if (items.isEmpty()) {
             TextView empty = new TextView(getContext());
@@ -588,14 +681,17 @@ public final class FrostFrontendView extends FrameLayout {
 
     private void adjustSelection(int direction) {
         if (adapter == null || items.isEmpty()) return;
+        if (TOUCH_LAYOUT_ITEM_ID.equals(items.get(selectedRow).id)) return;
         adapter.onItemAdjusted(tabs.get(tabIndex).id, items.get(selectedRow).id, direction);
         if (isOpen) refresh();
     }
 
     private void activateSelection() {
-        if (adapter == null || items.isEmpty()) return;
+        if (items.isEmpty()) return;
         String tabId = tabs.get(tabIndex).id;
         String itemId = items.get(selectedRow).id;
+        if (TOUCH_LAYOUT_ITEM_ID.equals(itemId)) { editTouchLayout(); return; }
+        if (adapter == null) return;
         adapter.onItemSelected(tabId, itemId);
         // The host may change a setting, its label or the available options.
         if (isOpen) refresh();
