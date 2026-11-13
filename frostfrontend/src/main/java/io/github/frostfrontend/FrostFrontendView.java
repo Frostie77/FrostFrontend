@@ -609,34 +609,45 @@ public final class FrostFrontendView extends FrameLayout {
     }
 
     private void renderTabs() {
+        if (sectionHeading != null) sectionHeading.setText(tabs.get(tabIndex).title);
         if (updateInfo != null) {
-            updateInfo.setVisibility("updates".equals(tabs.get(tabIndex).id)
-                ? VISIBLE : GONE);
+            updateInfo.setVisibility("updates".equals(tabs.get(tabIndex).id) ? VISIBLE : GONE);
             updateInfo.setText("Installed: " + installedVersion +
                 "\nLatest: " + latestVersion + "\n" + updateStatus);
         }
         tabStrip.removeAllViews();
         for (int i = 0; i < tabs.size(); i++) {
             final int index = i;
+            final boolean selected = i == tabIndex;
+            final Tab current = tabs.get(i);
+            String symbol;
+            switch (current.id) {
+                case "graphics": symbol = "▣"; break;
+                case "sound": symbol = "♫"; break;
+                case "controls": symbol = "✥"; break;
+                case "touch": symbol = "✧"; break;
+                case "saves": symbol = "▤"; break;
+                case "updates": symbol = "↻"; break;
+                default: symbol = "•"; break;
+            }
             TextView tab = new TextView(getContext());
-            tab.setText(tabs.get(i).title);
-            tab.setTextSize(18);
-            tab.setPadding(dp(4), dp(1), dp(4), dp(1));
+            tab.setText(symbol + "  " + current.title);
+            tab.setTextSize(15);
+            tab.setPadding(dp(9), dp(9), dp(5), dp(9));
+            tab.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+            tab.setTypeface(android.graphics.Typeface.DEFAULT,
+                    selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+            tab.setTextColor(selected ? 0xFFFFD584 : 0xFFD3E4F4);
+            tab.setBackground(background(selected ? 0xFF5A3C11 : NORMAL,
+                    selected ? GOLD : 0xFF24517C, 9));
             tab.setSingleLine(true);
             tab.setEllipsize(TextUtils.TruncateAt.END);
-            tab.setGravity(Gravity.CENTER);
-            tab.setTypeface(android.graphics.Typeface.DEFAULT,
-                android.graphics.Typeface.BOLD);
-            tab.setTextColor(i == tabIndex ? 0xFFFFDFA2 : 0xFFDDD6E0);
-            tab.setBackground(background(i == tabIndex ? SELECTED : NORMAL,
-                i == tabIndex ? 0xFFD0AA69 : 0xFF564761, 9));
-            tab.setContentDescription(tabs.get(i).title + " settings");
+            tab.setContentDescription(current.title + " settings");
             tab.setOnClickListener(v -> {
                 if (captureListener == null && unmappedWarningLayer == null) selectTab(index);
             });
-            LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(0, -1, 1f);
-            if (i > 0) params.leftMargin = dp(6);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(53));
+            params.bottomMargin = dp(8);
             tabStrip.addView(tab, params);
         }
     }
@@ -760,8 +771,8 @@ public final class FrostFrontendView extends FrameLayout {
         int w = getWidth() > 0 ? getWidth() : getResources().getDisplayMetrics().widthPixels;
         int h = getHeight() > 0 ? getHeight() : getResources().getDisplayMetrics().heightPixels;
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) panel.getLayoutParams();
-        params.width = Math.max(1, Math.min(dp(820), w - dp(52)));
-        params.height = Math.max(1, Math.min(dp(600), h - dp(44)));
+        params.width = Math.max(1, Math.min(dp(950), w - dp(24)));
+        params.height = Math.max(1, Math.min(dp(600), h - dp(22)));
         panel.setLayoutParams(params);
     }
 
@@ -868,13 +879,13 @@ private final class WarningOptionRow extends TextView {
         }
 
         void setHighlighted(boolean selected) {
-            nameView.setTextColor(selected ? 0xFFFFE1A2 : 0xFFECE7EF);
-            valueView.setTextColor(selected ? 0xFFFFE1A2 : 0xFFE0CCAA);
+            nameView.setTextColor(selected ? 0xFFFFD58B : 0xFFE1EFFB);
+            valueView.setTextColor(selected ? 0xFFFFD58B : 0xFFC3D8EB);
             detailView.setVisibility(selected && !details.isEmpty()
                 ? View.VISIBLE : View.GONE);
             setBackground(background(
-                selected ? 0xFF433147 : 0x55201A26,
-                selected ? 0xFFD0AA69 : 0x00000000, 8));
+                selected ? 0xFF18466D : 0xB00B2742,
+                selected ? 0xFFFFBF59 : 0xFF1E496E, 8));
         }
     }
 
