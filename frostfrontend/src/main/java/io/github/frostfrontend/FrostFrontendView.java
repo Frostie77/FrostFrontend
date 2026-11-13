@@ -161,12 +161,12 @@ public final class FrostFrontendView extends FrameLayout {
         }
     }
 
-    private static final int PANEL = 0xF5221A2B;
-    private static final int GOLD = 0xFFC09A62;
-    private static final int SELECTED = 0xFF433147;
-    private static final int NORMAL = 0xFF2B2432;
-    private static final int TEXT = 0xFFECE7EF;
-    private static final int SUBTLE = 0xFFBDB1C8;
+    private static final int PANEL = 0xF707172A;
+    private static final int GOLD = 0xFFFFC15C;
+    private static final int SELECTED = 0xFF153C62;
+    private static final int NORMAL = 0xFF0D2744;
+    private static final int TEXT = 0xFFE6F2FF;
+    private static final int SUBTLE = 0xFFADC4DB;
 
     private final List<Tab> tabs = new ArrayList<>();
     private final List<OptionRow> rowViews = new ArrayList<>();
@@ -174,6 +174,7 @@ public final class FrostFrontendView extends FrameLayout {
     private Adapter adapter;
     private LinearLayout panel;
     private LinearLayout tabStrip;
+    private TextView sectionHeading;
     private LinearLayout rowContainer;
     private ScrollView scroll;
     private TextView captureBanner;
@@ -505,7 +506,7 @@ public final class FrostFrontendView extends FrameLayout {
 
     private void init() {
         setVisibility(GONE);
-        setBackgroundColor(0xC9000000);
+        setBackgroundColor(0xD6000712);
         setClickable(true);
         setFocusable(true);
         setFocusableInTouchMode(true);
@@ -513,60 +514,95 @@ public final class FrostFrontendView extends FrameLayout {
 
         panel = new LinearLayout(getContext());
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(12), dp(8), dp(12), dp(10));
-        panel.setBackground(background(PANEL, GOLD, 16));
+        panel.setPadding(dp(13), dp(10), dp(13), dp(13));
+        panel.setBackground(background(PANEL, 0xFFB78D4E, 14));
         panel.setClickable(true);
-        addView(panel, new FrameLayout.LayoutParams(dp(820), dp(600), Gravity.CENTER));
+        addView(panel, new FrameLayout.LayoutParams(dp(950), dp(600), Gravity.CENTER));
 
         FrameLayout header = new FrameLayout(getContext());
-        panel.addView(header, new LinearLayout.LayoutParams(-1, dp(43)));
+        LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(-1, dp(45));
+        headerParams.bottomMargin = dp(8);
+        panel.addView(header, headerParams);
 
-        tabStrip = new LinearLayout(getContext());
-        tabStrip.setOrientation(LinearLayout.HORIZONTAL);
-        FrameLayout.LayoutParams stripParams = new FrameLayout.LayoutParams(
-            -1, -1, Gravity.START | Gravity.CENTER_VERTICAL);
-        stripParams.rightMargin = dp(43);
-        header.addView(tabStrip, stripParams);
+        TextView headerTitle = new TextView(getContext());
+        headerTitle.setText("⚙  Settings");
+        headerTitle.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        headerTitle.setTextColor(0xFFE3EEFB);
+        headerTitle.setTextSize(22);
+        headerTitle.setGravity(Gravity.CENTER_VERTICAL);
+        FrameLayout.LayoutParams titleParams = new FrameLayout.LayoutParams(-1, -1, Gravity.START);
+        titleParams.rightMargin = dp(48);
+        header.addView(headerTitle, titleParams);
 
         View exit = new ExitIcon(getContext());
         exit.setOnClickListener(view -> close());
         exit.setContentDescription("Close FrostFrontend");
-        FrameLayout.LayoutParams exitParams = new FrameLayout.LayoutParams(
-            dp(33), dp(33), Gravity.END | Gravity.CENTER_VERTICAL);
+        FrameLayout.LayoutParams exitParams = new FrameLayout.LayoutParams(dp(35), dp(35), Gravity.END | Gravity.CENTER_VERTICAL);
         header.addView(exit, exitParams);
 
+        LinearLayout body = new LinearLayout(getContext());
+        body.setOrientation(LinearLayout.HORIZONTAL);
+        panel.addView(body, new LinearLayout.LayoutParams(-1, 0, 1f));
+
+        ScrollView navScroll = new ScrollView(getContext());
+        navScroll.setVerticalScrollBarEnabled(false);
+        navScroll.setBackground(background(0xFF071B31, 0xFF28557D, 12));
+        LinearLayout.LayoutParams navParams = new LinearLayout.LayoutParams(dp(200), -1);
+        navParams.rightMargin = dp(11);
+        body.addView(navScroll, navParams);
+
+        tabStrip = new LinearLayout(getContext());
+        tabStrip.setOrientation(LinearLayout.VERTICAL);
+        tabStrip.setPadding(dp(6), dp(10), dp(6), dp(6));
+        navScroll.addView(tabStrip, new ScrollView.LayoutParams(-1, -2));
+
+        LinearLayout content = new LinearLayout(getContext());
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(7), dp(5), dp(7), dp(7));
+        content.setBackground(background(0xE30A233C, 0xFF28557D, 12));
+        body.addView(content, new LinearLayout.LayoutParams(0, -1, 1f));
+
+        sectionHeading = new TextView(getContext());
+        sectionHeading.setTextSize(19);
+        sectionHeading.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        sectionHeading.setTextColor(0xFFE4EEFA);
+        sectionHeading.setPadding(dp(10), dp(8), dp(6), dp(10));
+        content.addView(sectionHeading, new LinearLayout.LayoutParams(-1, -2));
+
         updateInfo = new TextView(getContext());
-        updateInfo.setTextSize(15);
-        updateInfo.setTextColor(0xFFF0E3D1);
-        updateInfo.setPadding(dp(12), dp(8), dp(12), dp(8));
-        updateInfo.setBackground(background(0xAA30253B, 0, 9));
+        updateInfo.setTextSize(13);
+        updateInfo.setTextColor(0xFFE5F2FE);
+        updateInfo.setPadding(dp(9), dp(8), dp(9), dp(8));
+        updateInfo.setBackground(background(0xFF153452, 0, 8));
         updateInfo.setVisibility(GONE);
         LinearLayout.LayoutParams updateParams = new LinearLayout.LayoutParams(-1, -2);
         updateParams.bottomMargin = dp(6);
-        panel.addView(updateInfo, updateParams);
+        content.addView(updateInfo, updateParams);
 
         captureBanner = new TextView(getContext());
         captureBanner.setTextSize(14);
         captureBanner.setTextColor(0xFFFFE6AD);
         captureBanner.setGravity(Gravity.CENTER);
         captureBanner.setPadding(dp(14), dp(10), dp(14), dp(10));
-        captureBanner.setBackground(background(0xFF48323F, 0, 9));
+        captureBanner.setBackground(background(0xFF41341F, GOLD, 9));
         captureBanner.setVisibility(GONE);
         captureBanner.setContentDescription("Waiting for a controller button; Start cancels");
         captureBanner.setOnClickListener(v -> cancelButtonCapture());
-        LinearLayout.LayoutParams captureParams = new LinearLayout.LayoutParams(-1, dp(38));
+        LinearLayout.LayoutParams captureParams = new LinearLayout.LayoutParams(-1, dp(40));
+
         mappingNotice = new TextView(getContext());
         mappingNotice.setTextSize(14);
         mappingNotice.setTextColor(0xFFFFE6AD);
         mappingNotice.setGravity(Gravity.CENTER);
         mappingNotice.setPadding(dp(10), dp(7), dp(10), dp(7));
-        mappingNotice.setBackground(background(0xFF3B2939, GOLD, 7));
+        mappingNotice.setBackground(background(0xFF273E56, GOLD, 7));
         mappingNotice.setVisibility(GONE);
+        content.addView(mappingNotice, new LinearLayout.LayoutParams(-1, -2));
 
         scroll = new ScrollView(getContext());
         scroll.setFillViewport(false);
-        panel.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
-        panel.addView(captureBanner, captureParams);
+        content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+        content.addView(captureBanner, captureParams);
         rowContainer = new LinearLayout(getContext());
         rowContainer.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(rowContainer, new ScrollView.LayoutParams(-1, -2));
