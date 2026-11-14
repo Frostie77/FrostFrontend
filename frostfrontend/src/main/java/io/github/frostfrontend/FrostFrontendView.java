@@ -525,6 +525,7 @@ public final class FrostFrontendView extends FrameLayout {
         LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(-1, dp(45));
         headerParams.bottomMargin = dp(8);
         panel.addView(header, headerParams);
+        header.setBackground(background(0xFF102F50, 0xFF2D74AA, 8));
 
         TextView headerTitle = new TextView(getContext());
         headerTitle.setText("⚙  Settings");
@@ -559,7 +560,7 @@ public final class FrostFrontendView extends FrameLayout {
         ScrollView navScroll = new ScrollView(getContext());
         navScroll.setVerticalScrollBarEnabled(false);
         navScroll.setBackground(background(0xFF071B31, 0xFF28557D, 12));
-        LinearLayout.LayoutParams navParams = new LinearLayout.LayoutParams(dp(200), -1);
+        LinearLayout.LayoutParams navParams = new LinearLayout.LayoutParams(dp(255), -1);
         navParams.rightMargin = dp(11);
         body.addView(navScroll, navParams);
 
@@ -677,6 +678,8 @@ public final class FrostFrontendView extends FrameLayout {
                 case "touch": symbol = "✧"; break;
                 case "saves": symbol = "▤"; break;
                 case "updates": symbol = "↻"; break;
+                case "diagnostics": symbol = "ⓘ"; break;
+                case "about": symbol = "☆"; break;
                 default: symbol = "•"; break;
             }
             TextView tab = new TextView(getContext());
@@ -686,17 +689,16 @@ public final class FrostFrontendView extends FrameLayout {
             tab.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
             tab.setTypeface(android.graphics.Typeface.DEFAULT,
                     selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
-            tab.setTextColor(selected ? 0xFFFFD584 : 0xFFD3E4F4);
-            tab.setBackground(background(selected ? 0xFF5A3C11 : NORMAL,
-                    selected ? GOLD : 0xFF24517C, 9));
+            tab.setTextColor(selected ? 0xFF1A1A1A : 0xFFD3E4F4);
+            tab.setBackground(navBackground(selected));
             tab.setSingleLine(true);
             tab.setEllipsize(TextUtils.TruncateAt.END);
             tab.setContentDescription(current.title + " settings");
             tab.setOnClickListener(v -> {
                 if (captureListener == null && unmappedWarningLayer == null) selectTab(index);
             });
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(53));
-            params.bottomMargin = dp(8);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(42));
+            params.bottomMargin = dp(4);
             tabStrip.addView(tab, params);
         }
     }
@@ -835,6 +837,17 @@ public final class FrostFrontendView extends FrameLayout {
         params.width = Math.max(1, Math.min(dp(950), w - dp(24)));
         params.height = Math.max(1, Math.min(dp(600), h - dp(22)));
         panel.setLayoutParams(params);
+    }
+
+    /** The gold gradient is shared by the selected left-rail item; unselected rows stay navy. */
+    private GradientDrawable navBackground(boolean selected) {
+        GradientDrawable drawable = new GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            selected ? new int[]{0xFFD59626, 0xFFFFC954, 0xFFBD7B13}
+                     : new int[]{0xFF09223A, 0xFF113959});
+        drawable.setCornerRadius(dp(8));
+        drawable.setStroke(dp(2), selected ? 0xFFFFE092 : 0xFF255A86);
+        return drawable;
     }
 
     private GradientDrawable background(int color, int border, int radius) {
