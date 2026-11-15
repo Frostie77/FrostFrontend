@@ -4,6 +4,8 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -155,7 +157,10 @@ public final class FrostFrontendView extends FrameLayout {
         /** Pause/resume the host game when this view opens/closes. */
         void onVisibilityChanged(boolean visible);
 
-        /** Arcane uses left/right to cycle settings in both directions. */
+        /** Whether left/right changes this item in the current tab. */
+        default boolean isItemAdjustable(String tabId, String itemId) { return true; }
+
+        /** Left/right cycles settings in both directions. */
         default void onItemAdjusted(String tabId, String itemId, int direction) {
             onItemSelected(tabId, itemId);
         }
@@ -174,6 +179,8 @@ public final class FrostFrontendView extends FrameLayout {
     private Adapter adapter;
     private LinearLayout panel;
     private LinearLayout tabStrip;
+    private ScrollView navScroll;
+    private int tabHeight;
     private TextView sectionHeading;
     private TextView descriptionHeading;
     private TextView descriptionText;
@@ -516,72 +523,82 @@ public final class FrostFrontendView extends FrameLayout {
 
         panel = new LinearLayout(getContext());
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(13), dp(10), dp(13), dp(13));
+        panel.setPadding(dp(10), dp(8), dp(10), dp(8));
         panel.setBackground(background(PANEL, 0xFFB78D4E, 14));
         panel.setClickable(true);
         addView(panel, new FrameLayout.LayoutParams(dp(950), dp(600), Gravity.CENTER));
 
-        FrameLayout header = new FrameLayout(getContext());
-        LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(-1, dp(45));
-        headerParams.bottomMargin = dp(8);
+        LinearLayout header = new LinearLayout(getContext());
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(11), 0, dp(4), 0);
+        LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(-1, dp(42));
+        headerParams.bottomMargin = dp(7);
         panel.addView(header, headerParams);
         header.setBackground(background(0xFF102F50, 0xFF2D74AA, 8));
 
         TextView headerTitle = new TextView(getContext());
         headerTitle.setText("⚙  Settings");
-        headerTitle.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
-        headerTitle.setTextColor(0xFFE3EEFB);
-        headerTitle.setTextSize(22);
-        headerTitle.setGravity(Gravity.CENTER_VERTICAL);
-        FrameLayout.LayoutParams titleParams = new FrameLayout.LayoutParams(-1, -1, Gravity.START);
-        titleParams.rightMargin = dp(200);
-        header.addView(headerTitle, titleParams);
+        headerTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        headerTitle.setTextColor(TEXT);
+        headerTitle.setTextSize(20);
+        headerTitle.setSingleLine(true);
+        headerTitle.setEllipsize(TextUtils.TruncateAt.END);
+        header.addView(headerTitle, new LinearLayout.LayoutParams(0, -2, 1f));
+
         TextView brand = new TextView(getContext());
         brand.setText("❄  FrostFrontend");
-        brand.setTextSize(13);
-        brand.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD_ITALIC);
+        brand.setTextSize(12);
+        brand.setTypeface(Typeface.DEFAULT_BOLD);
         brand.setTextColor(0xFFBDDFFF);
-        brand.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-        FrameLayout.LayoutParams brandParams =
-                new FrameLayout.LayoutParams(dp(170), -1, Gravity.END);
-        brandParams.rightMargin = dp(43);
+        brand.setSingleLine(true);
+        LinearLayout.LayoutParams brandParams = new LinearLayout.LayoutParams(-2, -2);
+        brandParams.rightMargin = dp(9);
         header.addView(brand, brandParams);
+        header.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            int visible = right - left >= dp(320) ? VISIBLE : GONE;
+            if (brand.getVisibility() != visible) brand.setVisibility(visible);
+        });
 
         View exit = new ExitIcon(getContext());
         exit.setOnClickListener(view -> close());
-        exit.setContentDescription("Close FrostFrontend");
-        FrameLayout.LayoutParams exitParams = new FrameLayout.LayoutParams(dp(35), dp(35), Gravity.END | Gravity.CENTER_VERTICAL);
-        header.addView(exit, exitParams);
+        exit.setContentDescription("Close settings");
+        header.addView(exit, new LinearLayout.LayoutParams(dp(36), dp(36)));
 
         LinearLayout body = new LinearLayout(getContext());
         body.setOrientation(LinearLayout.HORIZONTAL);
         panel.addView(body, new LinearLayout.LayoutParams(-1, 0, 1f));
 
-        ScrollView navScroll = new ScrollView(getContext());
+        navScroll = new ScrollView(getContext());
         navScroll.setVerticalScrollBarEnabled(false);
         navScroll.setBackground(background(0xFF071B31, 0xFF28557D, 12));
-        LinearLayout.LayoutParams navParams = new LinearLayout.LayoutParams(dp(255), -1);
-        navParams.rightMargin = dp(11);
+        LinearLayout.LayoutParams navParams = new LinearLayout.LayoutParams(0, -1, 0.28f);
+        navParams.rightMargin = dp(8);
         body.addView(navScroll, navParams);
 
         tabStrip = new LinearLayout(getContext());
         tabStrip.setOrientation(LinearLayout.VERTICAL);
-        tabStrip.setPadding(dp(6), dp(10), dp(6), dp(6));
+        tabStrip.setPadding(dp(5), dp(5), dp(5), dp(5));
         navScroll.addView(tabStrip, new ScrollView.LayoutParams(-1, -2));
+        tabHeight = dp(38);
+        navScroll.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (bottom - top != oldBottom - oldTop) resizeTabs();
+        });
 
         LinearLayout content = new LinearLayout(getContext());
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(7), dp(5), dp(7), dp(7));
+        content.setPadding(dp(5), dp(5), dp(5), dp(5));
         content.setBackground(background(0xE30A233C, 0xFF28557D, 12));
-        body.addView(content, new LinearLayout.LayoutParams(0, -1, 1f));
+        body.addView(content, new LinearLayout.LayoutParams(0, -1, 0.72f));
 
         sectionHeading = new TextView(getContext());
-        sectionHeading.setTextSize(19);
+        sectionHeading.setTextSize(17);
         sectionHeading.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
         sectionHeading.setTextColor(0xFFE4EEFA);
-        sectionHeading.setPadding(dp(10), dp(8), dp(6), dp(10));
+        sectionHeading.setPadding(dp(9), dp(5), dp(6), dp(5));
         sectionHeading.setBackground(background(0xFF102E50, 0xFF285982, 8));
-        content.addView(sectionHeading, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout.LayoutParams sectionParams = new LinearLayout.LayoutParams(-1, -2);
+        sectionParams.bottomMargin = dp(4);
+        content.addView(sectionHeading, sectionParams);
 
         updateInfo = new TextView(getContext());
         updateInfo.setTextSize(13);
@@ -602,7 +619,9 @@ public final class FrostFrontendView extends FrameLayout {
         captureBanner.setVisibility(GONE);
         captureBanner.setContentDescription("Waiting for a controller button; Start cancels");
         captureBanner.setOnClickListener(v -> cancelButtonCapture());
-        LinearLayout.LayoutParams captureParams = new LinearLayout.LayoutParams(-1, dp(40));
+        LinearLayout.LayoutParams captureParams = new LinearLayout.LayoutParams(-1, -2);
+        captureParams.bottomMargin = dp(3);
+        content.addView(captureBanner, captureParams);
 
         mappingNotice = new TextView(getContext());
         mappingNotice.setTextSize(14);
@@ -619,11 +638,11 @@ public final class FrostFrontendView extends FrameLayout {
 
         LinearLayout descriptionPanel = new LinearLayout(getContext());
         descriptionPanel.setOrientation(LinearLayout.VERTICAL);
-        descriptionPanel.setPadding(dp(14), dp(9), dp(12), dp(11));
+        descriptionPanel.setPadding(dp(9), dp(5), dp(9), dp(6));
         descriptionPanel.setBackground(background(0xFF071C34, 0xFF2F7FBD, 10));
         LinearLayout.LayoutParams descriptionParams =
                 new LinearLayout.LayoutParams(-1, -2);
-        descriptionParams.topMargin = dp(8);
+        descriptionParams.topMargin = dp(5);
         content.addView(descriptionPanel, descriptionParams);
 
         descriptionHeading = new TextView(getContext());
@@ -637,21 +656,19 @@ public final class FrostFrontendView extends FrameLayout {
         descriptionText.setTextColor(0xFFCCDEF2);
         descriptionText.setTextSize(12);
         descriptionText.setPadding(0, dp(3), 0, 0);
-        descriptionText.setMaxLines(3);
+        descriptionText.setMaxLines(2);
         descriptionText.setEllipsize(TextUtils.TruncateAt.END);
         descriptionPanel.addView(descriptionText,
                 new LinearLayout.LayoutParams(-1, -2));
 
-        content.addView(captureBanner, captureParams);
         TextView controls = new TextView(getContext());
-        controls.setText("L1 / R1  Sections      ◀ / ▶  Adjust         A  Select       B  Back");
-        controls.setTextSize(12);
+        controls.setText("L1 / R1  Sections    ← / →  Adjust    A  Select    B  Back");
+        controls.setTextSize(11);
         controls.setTextColor(0xFFE2EFFA);
         controls.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-        controls.setSingleLine(true);
-        controls.setEllipsize(TextUtils.TruncateAt.END);
-        controls.setPadding(dp(10), dp(8), dp(12), 0);
-        panel.addView(controls, new LinearLayout.LayoutParams(-1, dp(36)));
+        controls.setPadding(dp(9), dp(4), dp(9), 0);
+        controls.setMinHeight(dp(26));
+        panel.addView(controls, new LinearLayout.LayoutParams(-1, -2));
 
         rowContainer = new LinearLayout(getContext());
         rowContainer.setOrientation(LinearLayout.VERTICAL);
@@ -684,23 +701,50 @@ public final class FrostFrontendView extends FrameLayout {
             }
             TextView tab = new TextView(getContext());
             tab.setText(symbol + "  " + current.title);
-            tab.setTextSize(15);
-            tab.setPadding(dp(9), dp(9), dp(5), dp(9));
+            tab.setTextSize(13);
+            tab.setPadding(dp(7), 0, dp(5), 0);
             tab.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
             tab.setTypeface(android.graphics.Typeface.DEFAULT,
                     selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
             tab.setTextColor(selected ? 0xFF1A1A1A : 0xFFD3E4F4);
             tab.setBackground(navBackground(selected));
-            tab.setSingleLine(true);
+            tab.setMaxLines(2);
+            tab.setIncludeFontPadding(false);
             tab.setEllipsize(TextUtils.TruncateAt.END);
             tab.setContentDescription(current.title + " settings");
             tab.setOnClickListener(v -> {
                 if (captureListener == null && unmappedWarningLayer == null) selectTab(index);
             });
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(42));
-            params.bottomMargin = dp(4);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, tabHeight);
+            params.bottomMargin = dp(3);
             tabStrip.addView(tab, params);
         }
+        resizeTabs();
+        revealActiveTab();
+    }
+
+    private void resizeTabs() {
+        if (tabs.isEmpty() || navScroll.getHeight() <= 0 || tabStrip.getChildCount() != tabs.size()) return;
+        int free = navScroll.getHeight() - tabStrip.getPaddingTop() - tabStrip.getPaddingBottom();
+        int height = Math.max(dp(32), Math.min(dp(45), free / tabs.size() - dp(3)));
+        if (height == tabHeight) return;
+        tabHeight = height;
+        for (int i = 0; i < tabStrip.getChildCount(); i++) {
+            View tab = tabStrip.getChildAt(i);
+            LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) tab.getLayoutParams();
+            params.height = height;
+            tab.setLayoutParams(params);
+        }
+        revealActiveTab();
+    }
+
+    private void revealActiveTab() {
+        View active = tabStrip.getChildAt(tabIndex);
+        if (active == null) return;
+        active.post(() -> {
+            if (active == tabStrip.getChildAt(tabIndex))
+                active.requestRectangleOnScreen(new Rect(0, 0, active.getWidth(), active.getHeight()), true);
+        });
     }
 
     private void renderRows() {
@@ -724,16 +768,15 @@ public final class FrostFrontendView extends FrameLayout {
             empty.setTextColor(SUBTLE);
             empty.setPadding(dp(12), dp(18), dp(12), dp(18));
             rowContainer.addView(empty);
+            updateSelection();
             return;
         }
         for (int i = 0; i < items.size(); i++) {
             final int index = i;
-            OptionRow row = new OptionRow(items.get(i).unmapped);
-            row.setContent(items.get(i).title +
-                (items.get(i).value.isEmpty() ? "" : ": " + items.get(i).value),
-                items.get(i).description);
-            row.setContentDescription(items.get(i).title +
-                (items.get(i).value.isEmpty() ? "" : ": " + items.get(i).value));
+            Item item = items.get(i);
+            boolean adjustable = adapter != null && adapter.isItemAdjustable(tabs.get(tabIndex).id, item.id);
+            OptionRow row = new OptionRow(item, adjustable);
+            row.setContentDescription(item.title + (item.value.isEmpty() ? "" : ": " + item.value));
             row.setOnClickListener(v -> {
                 if (captureListener != null || unmappedWarningLayer != null) return;
                 selectedRow = index;
@@ -746,10 +789,10 @@ public final class FrostFrontendView extends FrameLayout {
             rowContainer.addView(row, rowParams);
             rowViews.add(row);
         }
-        updateSelection();
         scroll.post(() -> {
             if (isOpen) scroll.scrollTo(0, restoreScroll);
         });
+        updateSelection();
     }
 
     private void selectTab(int newIndex) {
@@ -779,8 +822,10 @@ public final class FrostFrontendView extends FrameLayout {
 
     private void adjustSelection(int direction) {
         if (adapter == null || items.isEmpty()) return;
-        if (TOUCH_LAYOUT_ITEM_ID.equals(items.get(selectedRow).id)) return;
-        adapter.onItemAdjusted(tabs.get(tabIndex).id, items.get(selectedRow).id, direction);
+        String tabId = tabs.get(tabIndex).id;
+        String itemId = items.get(selectedRow).id;
+        if (TOUCH_LAYOUT_ITEM_ID.equals(itemId) || !adapter.isItemAdjustable(tabId, itemId)) return;
+        adapter.onItemAdjusted(tabId, itemId, direction);
         if (isOpen) refresh();
     }
 
@@ -800,9 +845,8 @@ public final class FrostFrontendView extends FrameLayout {
             if (selectedRow >= 0 && selectedRow < items.size()) {
                 Item selected = items.get(selectedRow);
                 descriptionHeading.setText(selected.title);
-                descriptionText.setText(selected.description.isEmpty()
-                        ? "Press A to select. Use left / right to change applicable settings."
-                        : selected.description);
+                descriptionText.setText(selected.description);
+                descriptionText.setVisibility(selected.description.isEmpty() ? GONE : VISIBLE);
             } else {
                 descriptionHeading.setText("");
                 descriptionText.setText("");
@@ -834,8 +878,11 @@ public final class FrostFrontendView extends FrameLayout {
         int w = getWidth() > 0 ? getWidth() : getResources().getDisplayMetrics().widthPixels;
         int h = getHeight() > 0 ? getHeight() : getResources().getDisplayMetrics().heightPixels;
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) panel.getLayoutParams();
-        params.width = Math.max(1, Math.min(dp(950), w - dp(24)));
-        params.height = Math.max(1, Math.min(dp(600), h - dp(22)));
+        int width = Math.max(1, Math.min(dp(1080), w - dp(16)));
+        int height = Math.max(1, Math.min(dp(640), h - dp(16)));
+        if (params.width == width && params.height == height) return;
+        params.width = width;
+        params.height = height;
         panel.setLayoutParams(params);
     }
 
@@ -846,7 +893,7 @@ public final class FrostFrontendView extends FrameLayout {
             selected ? new int[]{0xFFD59626, 0xFFFFC954, 0xFFBD7B13}
                      : new int[]{0xFF09223A, 0xFF113959});
         drawable.setCornerRadius(dp(8));
-        drawable.setStroke(dp(2), selected ? 0xFFFFE092 : 0xFF255A86);
+        drawable.setStroke(dp(selected ? 2 : 1), selected ? 0xFFFFE092 : 0xFF255A86);
         return drawable;
     }
 
@@ -862,7 +909,7 @@ public final class FrostFrontendView extends FrameLayout {
         return Math.round(n * getResources().getDisplayMetrics().density);
     }
 
-private final class WarningOptionRow extends TextView {
+    private final class WarningOptionRow extends TextView {
         private final Paint warningPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Path triangle = new Path();
 
@@ -872,7 +919,7 @@ private final class WarningOptionRow extends TextView {
 
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
-            float x = getWidth() - dp(22);
+            float x = getWidth() / 2f;
             float y = getHeight() / 2f;
             float radius = dp(9);
             triangle.reset();
@@ -892,73 +939,47 @@ private final class WarningOptionRow extends TextView {
     }
 
     private final class OptionRow extends LinearLayout {
-        final TextView nameView;
-        final TextView valueView;
-        final TextView detailView;
-        private String details = "";
+        private final TextView nameView;
+        private final TextView valueView;
 
-        OptionRow(boolean unmapped) {
+        OptionRow(Item item, boolean adjustable) {
             super(FrostFrontendView.this.getContext());
-            setOrientation(LinearLayout.VERTICAL);
-            setPadding(dp(10), dp(7), dp(10), dp(7));
-            setMinimumHeight(dp(41));
+            setGravity(Gravity.CENTER_VERTICAL);
+            setPadding(dp(9), dp(5), dp(9), dp(5));
+            setMinimumHeight(dp(34));
             setClickable(true);
             setFocusable(false);
 
-            LinearLayout top = new LinearLayout(FrostFrontendView.this.getContext());
-            top.setOrientation(LinearLayout.HORIZONTAL);
-            top.setGravity(Gravity.CENTER_VERTICAL);
-            addView(top, new LinearLayout.LayoutParams(-1, -2));
+            nameView = new TextView(getContext());
+            nameView.setText(item.title);
+            nameView.setTextSize(13);
+            nameView.setMaxLines(2);
+            nameView.setEllipsize(TextUtils.TruncateAt.END);
+            addView(nameView, new LinearLayout.LayoutParams(0, -2, 3f));
 
-            nameView = new TextView(FrostFrontendView.this.getContext());
-            nameView.setTextSize(14);
-            nameView.setTextColor(0xFFECE7EF);
-            nameView.setGravity(Gravity.CENTER_VERTICAL);
-            nameView.setSingleLine(true);
-            nameView.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            top.addView(nameView, new LinearLayout.LayoutParams(0, -2, 1f));
+            valueView = new TextView(getContext());
+            valueView.setText(adjustable && !item.value.isEmpty() ? "‹  " + item.value + "  ›" : item.value);
+            valueView.setTextSize(12);
+            valueView.setGravity(Gravity.END);
+            valueView.setMaxLines(2);
+            valueView.setEllipsize(TextUtils.TruncateAt.END);
+            valueView.setVisibility(item.value.isEmpty() ? GONE : VISIBLE);
+            LinearLayout.LayoutParams valueParams = new LinearLayout.LayoutParams(0, -2, 2f);
+            valueParams.leftMargin = dp(7);
+            addView(valueView, valueParams);
 
-            valueView = new TextView(FrostFrontendView.this.getContext());
-            valueView.setTextSize(13);
-            valueView.setTextColor(0xFFDAE9FD);
-            valueView.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-            valueView.setSingleLine(true);
-            valueView.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-2, -2);
-            vlp.leftMargin = dp(9);
-            top.addView(valueView, vlp);
-
-            if (unmapped) {
+            if (item.unmapped) {
                 TextView warning = new WarningOptionRow();
-                top.addView(warning, new LinearLayout.LayoutParams(dp(30), dp(29)));
+                addView(warning, new LinearLayout.LayoutParams(dp(26), dp(24)));
             }
-
-            detailView = new TextView(FrostFrontendView.this.getContext());
-            detailView.setTextSize(11);
-            detailView.setTextColor(0xFFBDCFDF);
-            detailView.setPadding(dp(2), dp(2), 0, 0);
-            detailView.setVisibility(View.GONE);
-            addView(detailView, new LinearLayout.LayoutParams(-1, -2));
-        }
-
-        void setContent(String text, String detail) {
-            int sep = text.indexOf(": ");
-            String title = sep < 0 ? text : text.substring(0, sep);
-            String value = sep < 0 ? "" : text.substring(sep + 2);
-            nameView.setText(title);
-            valueView.setText(value.isEmpty() ? "" : "‹    " + value + "    ›");
-            valueView.setVisibility(value.isEmpty() ? View.GONE : View.VISIBLE);
-            details = detail;
-            detailView.setText(detail);
         }
 
         void setHighlighted(boolean selected) {
-            nameView.setTextColor(selected ? 0xFFFFD58B : 0xFFE1EFFB);
+            nameView.setTextColor(selected ? 0xFFFFD58B : TEXT);
             valueView.setTextColor(selected ? 0xFFFFD58B : 0xFFC3D8EB);
-            detailView.setVisibility(View.GONE);
             setBackground(background(
                 selected ? 0xFF52360E : 0xBA081F3B,
-                selected ? 0xFFFFCE62 : 0xFF1A496F, 8));
+                selected ? 0xFFFFCE62 : 0xFF1A496F, 7));
         }
     }
 
@@ -996,8 +1017,8 @@ private final class WarningOptionRow extends TextView {
                 boolean selected = i == warningSelection;
                 choices[i].setTextColor(selected ? 0xFFFFE1A2 : 0xFFEAE7EA);
                 choices[i].setBackground(background(
-                    selected ? 0xFF433147 : 0xFF292331,
-                    selected ? 0xFFD0AA69 : 0xFF615064, 9));
+                    selected ? 0xFF52360E : NORMAL,
+                    selected ? GOLD : 0xFF28557D, 9));
             }
         }
     }
@@ -1027,7 +1048,7 @@ private final class WarningOptionRow extends TextView {
         LinearLayout dialog = new LinearLayout(getContext());
         dialog.setOrientation(LinearLayout.VERTICAL);
         dialog.setPadding(dp(20), dp(17), dp(20), dp(19));
-        dialog.setBackground(background(0xFF251D2D, 0xFFD0AA69, 12));
+        dialog.setBackground(background(PANEL, GOLD, 12));
         int screenW = getResources().getDisplayMetrics().widthPixels;
         FrameLayout.LayoutParams dialogParams = new FrameLayout.LayoutParams(
             Math.min(dp(460), screenW - dp(56)), -2, Gravity.CENTER);
@@ -1091,7 +1112,7 @@ private final class WarningOptionRow extends TextView {
 
         ExitIcon(Context context) {
             super(context);
-            setBackground(background(0xFF3B2939, 0xFFBA986A, 9));
+            setBackground(background(0xFF0D2945, 0xFF3673A0, 8));
             paint.setColor(0xFFFFE0A1);
             paint.setStrokeWidth(dp(2.5f));
             paint.setStrokeCap(Paint.Cap.ROUND);
