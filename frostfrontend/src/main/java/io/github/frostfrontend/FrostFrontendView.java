@@ -2,6 +2,7 @@ package io.github.frostfrontend;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.os.Build;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
@@ -197,6 +198,7 @@ public final class FrostFrontendView extends FrameLayout {
     private int tabIndex;
     private int selectedRow;
     private int menuAxisLatch;
+    private boolean sectionsFocused;
     private boolean isOpen;
     private boolean mappingMode;
     public interface BackListener { boolean onBackRequested(); }
@@ -299,6 +301,7 @@ public final class FrostFrontendView extends FrameLayout {
     public void open() {
         if (isOpen || tabs.isEmpty()) return;
         isOpen = true;
+        sectionsFocused = true;
         menuAxisLatch = 0;
         setVisibility(VISIBLE);
         resizePanel();
@@ -409,15 +412,39 @@ public final class FrostFrontendView extends FrameLayout {
             return true;
         }
 
-        float y = event.getAxisValue(MotionEvent.AXIS_Y);
-        int direction = y > 0.68f ? 1 : y < -0.68f ? -1 : 0;
-        if (direction == 0) {
-            if (Math.abs(y) < 0.28f) menuAxisLatch = 0;
-        } else if (menuAxisLatch == 0) {
-            menuAxisLatch = direction;
-            changeSelection(direction);
+        // Controllers can report the D-pad as hat axes instead of key events.
+        float x = event.getAxisValue(MotionEvent.AXIS_HAT_X);
+        float y = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+        if (x == 0f && y == 0f) {
+            x = event.getAxisValue(MotionEvent.AXIS_X);
+            y = event.getAxisValue(MotionEvent.AXIS_Y);
+        }
+        float magnitude = Math.max(Math.abs(x), Math.abs(y));
+        if (magnitude < 0.28f) {
+            menuAxisLatch = 0;
+        } else if (magnitude > 0.65f && menuAxisLatch == 0) {
+            menuAxisLatch = 1;
+            if (Math.abs(x) > Math.abs(y)) moveHorizontal(x > 0f ? 1 : -1);
+            else moveVertical(y > 0f ? 1 : -1);
         }
         return true;
+    }
+
+    private void moveVertical(int direction) {
+        if (sectionsFocused) changeTab(direction);
+        else changeSelection(direction);
+    }
+
+    private void moveHorizontal(int direction) {
+        if (direction < 0) focusSections(true);
+        else focusSections(false);
+    }
+
+    private void focusSections(boolean focused) {
+        if (sectionsFocused == focused) return;
+        sectionsFocused = focused;
+        renderTabs();
+        updateSelection();
     }
 
     private void completeButtonCapture(int code) {
@@ -484,25 +511,29 @@ public final class FrostFrontendView extends FrameLayout {
                 changeTab(1);
                 break;
             case KeyEvent.KEYCODE_DPAD_UP:
-                changeSelection(-1);
+                moveVertical(-1);
                 break;
             case KeyEvent.KEYCODE_DPAD_DOWN:
-                changeSelection(1);
+                moveVertical(1);
                 break;
             case KeyEvent.KEYCODE_BUTTON_A:
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER:
-                activateSelection();
+                if (sectionsFocused) focusSections(false);
+                else activateSelection();
                 break;
             case KeyEvent.KEYCODE_BUTTON_B:
             case KeyEvent.KEYCODE_BACK:
                 back();
                 break;
             case KeyEvent.KEYCODE_DPAD_LEFT:
-                adjustSelection(-1);
+                moveHorizontal(-1);
                 break;
             case KeyEvent.KEYCODE_DPAD_RIGHT:
-                adjustSelection(1);
+                moveHorizontal(1);
+                break;
+            case KeyEvent.KEYCODE_BUTTON_X:
+                if (!sectionsFocused) adjustSelection(-1);
                 break;
             case KeyEvent.KEYCODE_BUTTON_START:
                 close();
@@ -519,6 +550,7 @@ public final class FrostFrontendView extends FrameLayout {
         setClickable(true);
         setFocusable(true);
         setFocusableInTouchMode(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) setDefaultFocusHighlightEnabled(false);
         setContentDescription("FrostFrontend settings");
 
         panel = new LinearLayout(getContext());
@@ -547,9 +579,11 @@ public final class FrostFrontendView extends FrameLayout {
 
         TextView brand = new TextView(getContext());
         brand.setText("❄  FrostFrontend");
-        brand.setTextSize(12);
-        brand.setTypeface(Typeface.DEFAULT_BOLD);
-        brand.setTextColor(0xFFBDDFFF);
+        brand.setTextSize(15);
+        brand.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD_ITALIC));
+        brand.setLetterSpacing(0.035f);
+        brand.setTextColor(0xFFFFD489);
+        brand.setShadowLayer(dp(2), 0f, dp(1), 0xFF000A16);
         brand.setSingleLine(true);
         LinearLayout.LayoutParams brandParams = new LinearLayout.LayoutParams(-2, -2);
         brandParams.rightMargin = dp(9);
@@ -662,7 +696,7 @@ public final class FrostFrontendView extends FrameLayout {
                 new LinearLayout.LayoutParams(-1, -2));
 
         TextView controls = new TextView(getContext());
-        controls.setText("L1 / R1  Sections    ← / →  Adjust    A  Select    B  Back");
+        controls.setText("← Sections   → Options   A Select / Next   X Previous   B Back");
         controls.setTextSize(11);
         controls.setTextColor(0xFFE2EFFA);
         controls.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
@@ -699,22 +733,41 @@ public final class FrostFrontendView extends FrameLayout {
                 case "about": symbol = "☆"; break;
                 default: symbol = "•"; break;
             }
-            TextView tab = new TextView(getContext());
-            tab.setText(symbol + "  " + current.title);
-            tab.setTextSize(13);
-            tab.setPadding(dp(7), 0, dp(5), 0);
-            tab.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
-            tab.setTypeface(android.graphics.Typeface.DEFAULT,
-                    selected ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
-            tab.setTextColor(selected ? 0xFF1A1A1A : 0xFFD3E4F4);
+            LinearLayout tab = new LinearLayout(getContext());
+            tab.setGravity(Gravity.CENTER_VERTICAL);
+            tab.setPadding(dp(7), 0, dp(6), 0);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) tab.setDefaultFocusHighlightEnabled(false);
             tab.setBackground(navBackground(selected));
-            tab.setMaxLines(2);
-            tab.setIncludeFontPadding(false);
-            tab.setEllipsize(TextUtils.TruncateAt.END);
             tab.setContentDescription(current.title + " settings");
             tab.setOnClickListener(v -> {
-                if (captureListener == null && unmappedWarningLayer == null) selectTab(index);
+                if (captureListener == null && unmappedWarningLayer == null) {
+                    selectTab(index);
+                    focusSections(false);
+                }
             });
+
+            int color = selected && sectionsFocused ? 0xFF171307 : TEXT;
+            TextView icon = new TextView(getContext());
+            icon.setText(symbol);
+            icon.setGravity(Gravity.CENTER);
+            icon.setTextSize(16);
+            icon.setTextColor(selected ? (sectionsFocused ? color : GOLD) : SUBTLE);
+            icon.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+            LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(23), -2);
+            iconParams.rightMargin = dp(5);
+            tab.addView(icon, iconParams);
+
+            TextView label = new TextView(getContext());
+            label.setText(current.title);
+            label.setTextSize(15);
+            label.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
+            label.setTextColor(color);
+            label.setMaxLines(2);
+            label.setIncludeFontPadding(false);
+            label.setEllipsize(TextUtils.TruncateAt.END);
+            label.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            label.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+            tab.addView(label, new LinearLayout.LayoutParams(0, -2, 1f));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, tabHeight);
             params.bottomMargin = dp(3);
             tabStrip.addView(tab, params);
@@ -780,6 +833,7 @@ public final class FrostFrontendView extends FrameLayout {
             row.setOnClickListener(v -> {
                 if (captureListener != null || unmappedWarningLayer != null) return;
                 selectedRow = index;
+                focusSections(false);
                 updateSelection();
                 activateSelection();
             });
@@ -803,7 +857,6 @@ public final class FrostFrontendView extends FrameLayout {
             mappingMode = false;
             tabIndex = newIndex;
             selectedRow = 0;
-            menuAxisLatch = 0;
             scroll.scrollTo(0, 0);
             refresh();
         });
@@ -853,7 +906,7 @@ public final class FrostFrontendView extends FrameLayout {
             }
         }
         for (int i = 0; i < rowViews.size(); i++)
-            rowViews.get(i).setHighlighted(i == selectedRow);
+            rowViews.get(i).setHighlighted(!sectionsFocused && i == selectedRow);
         if (selectedRow < rowViews.size()) {
             View row = rowViews.get(selectedRow);
             scroll.post(() -> {
@@ -890,7 +943,7 @@ public final class FrostFrontendView extends FrameLayout {
     private GradientDrawable navBackground(boolean selected) {
         GradientDrawable drawable = new GradientDrawable(
             GradientDrawable.Orientation.LEFT_RIGHT,
-            selected ? new int[]{0xFFD59626, 0xFFFFC954, 0xFFBD7B13}
+            selected && sectionsFocused ? new int[]{0xFFD59626, 0xFFFFC954, 0xFFBD7B13}
                      : new int[]{0xFF09223A, 0xFF113959});
         drawable.setCornerRadius(dp(8));
         drawable.setStroke(dp(selected ? 2 : 1), selected ? 0xFFFFE092 : 0xFF255A86);
@@ -958,7 +1011,7 @@ public final class FrostFrontendView extends FrameLayout {
             addView(nameView, new LinearLayout.LayoutParams(0, -2, 3f));
 
             valueView = new TextView(getContext());
-            valueView.setText(adjustable && !item.value.isEmpty() ? "‹  " + item.value + "  ›" : item.value);
+            valueView.setText(adjustable && !item.value.isEmpty() ? item.value + "  ›" : item.value);
             valueView.setTextSize(12);
             valueView.setGravity(Gravity.END);
             valueView.setMaxLines(2);
