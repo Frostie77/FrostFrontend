@@ -3,6 +3,7 @@ package io.github.frostfrontend;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.os.Build;
+import android.util.TypedValue;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
@@ -579,7 +580,7 @@ public final class FrostFrontendView extends FrameLayout {
 
         TextView brand = new TextView(getContext());
         brand.setText("❄  FrostFrontend");
-        brand.setTextSize(15);
+        brand.setTextSize(19);
         brand.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD_ITALIC));
         brand.setLetterSpacing(0.035f);
         brand.setTextColor(0xFFFFD489);
@@ -759,15 +760,18 @@ public final class FrostFrontendView extends FrameLayout {
 
             TextView label = new TextView(getContext());
             label.setText(current.title);
-            label.setTextSize(15);
-            label.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
+            label.setTextSize(20);
+            label.setTypeface(Typeface.DEFAULT_BOLD);
             label.setTextColor(color);
             label.setMaxLines(2);
             label.setIncludeFontPadding(false);
             label.setEllipsize(TextUtils.TruncateAt.END);
             label.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             label.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
-            tab.addView(label, new LinearLayout.LayoutParams(0, -2, 1f));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                label.setAutoSizeTextTypeUniformWithConfiguration(15, 24, 1, TypedValue.COMPLEX_UNIT_SP);
+            }
+            tab.addView(label, new LinearLayout.LayoutParams(0, -1, 1f));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, tabHeight);
             params.bottomMargin = dp(3);
             tabStrip.addView(tab, params);
