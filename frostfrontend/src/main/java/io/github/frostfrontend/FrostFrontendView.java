@@ -760,7 +760,7 @@ public final class FrostFrontendView extends FrameLayout {
 
             TextView label = new TextView(getContext());
             label.setText(current.title);
-            label.setTextSize(20);
+            label.setTextSize(19);
             label.setTypeface(Typeface.DEFAULT_BOLD);
             label.setTextColor(color);
             label.setMaxLines(2);
@@ -769,7 +769,7 @@ public final class FrostFrontendView extends FrameLayout {
             label.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             label.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                label.setAutoSizeTextTypeUniformWithConfiguration(15, 24, 1, TypedValue.COMPLEX_UNIT_SP);
+                label.setAutoSizeTextTypeUniformWithConfiguration(14, 23, 1, TypedValue.COMPLEX_UNIT_SP);
             }
             tab.addView(label, new LinearLayout.LayoutParams(0, -1, 1f));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, tabHeight);
