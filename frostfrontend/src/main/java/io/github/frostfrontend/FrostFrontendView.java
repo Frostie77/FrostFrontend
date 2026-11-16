@@ -718,6 +718,14 @@ public final class FrostFrontendView extends FrameLayout {
                 "\nLatest: " + latestVersion + "\n" + updateStatus);
         }
         tabStrip.removeAllViews();
+        int referenceIndex = -1;
+        for (int i = 0; i < tabs.size(); i++) {
+            if ("saves".equals(tabs.get(i).id)) {
+                referenceIndex = i;
+                break;
+            }
+        }
+        List<TextView> labels = new ArrayList<>(tabs.size());
         for (int i = 0; i < tabs.size(); i++) {
             final int index = i;
             final boolean selected = i == tabIndex;
@@ -768,13 +776,25 @@ public final class FrostFrontendView extends FrameLayout {
             label.setEllipsize(TextUtils.TruncateAt.END);
             label.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             label.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && (referenceIndex < 0 || i == referenceIndex)) {
                 label.setAutoSizeTextTypeUniformWithConfiguration(14, 23, 1, TypedValue.COMPLEX_UNIT_SP);
             }
+            labels.add(label);
             tab.addView(label, new LinearLayout.LayoutParams(0, -1, 1f));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, tabHeight);
             params.bottomMargin = dp(3);
             tabStrip.addView(tab, params);
+        }
+        if (referenceIndex >= 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            TextView reference = labels.get(referenceIndex);
+            reference.addOnLayoutChangeListener((view, l, t, r, b, oldL, oldT, oldR, oldB) -> {
+                float size = reference.getTextSize();
+                for (TextView label : labels) {
+                    if (label != reference && label.getTextSize() != size) {
+                        label.setTextSize(TypedValue.COMPLEX_UNIT_PX, size);
+                    }
+                }
+            });
         }
         resizeTabs();
         revealActiveTab();
