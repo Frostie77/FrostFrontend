@@ -30,7 +30,8 @@ public final class FrostButtonMapper {
             if (id == null || id.trim().isEmpty() ||
                 name == null || name.trim().isEmpty())
                 throw new IllegalArgumentException("An action needs an ID and name");
-            if (defaultKeyCode != UNMAPPED && !isAssignableButton(defaultKeyCode))
+            if (defaultKeyCode != UNMAPPED &&
+                !isAssignableButton(defaultKeyCode) && !isDpadDirection(defaultKeyCode))
                 throw new IllegalArgumentException("Unsupported default button: " + name);
             this.id = id;
             this.name = name;
@@ -48,19 +49,27 @@ public final class FrostButtonMapper {
     }
 
     private final List<Action> actions;
+    private final boolean allowDpadDirections;
     private final Map<String, Integer> bindings = new LinkedHashMap<>();
 
     public FrostButtonMapper(List<Action> actions) {
+        this(actions, false);
+    }
+
+    public FrostButtonMapper(List<Action> actions, boolean allowDpadDirections) {
         if (actions == null || actions.isEmpty())
             throw new IllegalArgumentException("At least one action is required");
         this.actions = Collections.unmodifiableList(new ArrayList<>(actions));
+        this.allowDpadDirections = allowDpadDirections;
         Set<String> ids = new HashSet<>();
         Set<Integer> buttons = new HashSet<>();
         for (Action action : actions) {
             if (action == null || !ids.add(action.id))
                 throw new IllegalArgumentException("Null or duplicate action");
-            if (action.defaultKeyCode != UNMAPPED &&
-                !buttons.add(action.defaultKeyCode))
+            if (action.defaultKeyCode == UNMAPPED) continue;
+            if (!acceptsButton(action.defaultKeyCode))
+                throw new IllegalArgumentException("Unsupported default button: " + action.name);
+            if (!buttons.add(action.defaultKeyCode))
                 throw new IllegalArgumentException("Duplicate default controller button");
         }
         resetDefaults();
@@ -79,7 +88,7 @@ public final class FrostButtonMapper {
     public Change assign(String actionId, int keyCode) {
         if (!bindings.containsKey(actionId))
             throw new IllegalArgumentException("Unknown action: " + actionId);
-        if (keyCode != UNMAPPED && !isAssignableButton(keyCode))
+        if (keyCode != UNMAPPED && !acceptsButton(keyCode))
             throw new IllegalArgumentException("Unsupported button: " + keyCode);
         String displaced = null;
         if (keyCode != UNMAPPED) {
@@ -122,9 +131,18 @@ public final class FrostButtonMapper {
             String key = prefix + action.id;
             if (!preferences.contains(key)) continue;
             int value = preferences.getInt(key, action.defaultKeyCode);
-            if (value == UNMAPPED || isAssignableButton(value))
+            if (value == UNMAPPED || acceptsButton(value))
                 assign(action.id, value);
         }
+    }
+
+    public boolean acceptsButton(int keyCode) {
+        return isAssignableButton(keyCode) || (allowDpadDirections && isDpadDirection(keyCode));
+    }
+
+    static boolean isDpadDirection(int code) {
+        return code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN
+            || code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT;
     }
 
     public static boolean isAssignableButton(int keyCode) {
@@ -141,7 +159,7 @@ public final class FrostButtonMapper {
             case KeyEvent.KEYCODE_BUTTON_THUMBR:
                 return true;
             default:
-                return false; // Start, D-pad and Android Back stay reserved.
+                return false;
         }
     }
 
@@ -158,6 +176,10 @@ public final class FrostButtonMapper {
             case KeyEvent.KEYCODE_BUTTON_R2: return "R2";
             case KeyEvent.KEYCODE_BUTTON_THUMBL: return "L3";
             case KeyEvent.KEYCODE_BUTTON_THUMBR: return "R3";
+            case KeyEvent.KEYCODE_DPAD_UP: return "D-pad Up";
+            case KeyEvent.KEYCODE_DPAD_DOWN: return "D-pad Down";
+            case KeyEvent.KEYCODE_DPAD_LEFT: return "D-pad Left";
+            case KeyEvent.KEYCODE_DPAD_RIGHT: return "D-pad Right";
             default: return "Unknown";
         }
     }

@@ -199,6 +199,7 @@ public final class FrostFrontendView extends FrameLayout {
     private int tabIndex;
     private int selectedRow;
     private int menuAxisLatch;
+    private boolean hatHeld;
     private boolean sectionsFocused;
     private boolean isOpen;
     private boolean mappingMode;
@@ -304,6 +305,7 @@ public final class FrostFrontendView extends FrameLayout {
         isOpen = true;
         sectionsFocused = true;
         menuAxisLatch = 0;
+        hatHeld = false;
         setVisibility(VISIBLE);
         resizePanel();
         refresh();
@@ -372,20 +374,20 @@ public final class FrostFrontendView extends FrameLayout {
     }
 
     /**
-     * Some Android gamepads report L2/R2 as analogue axes rather than key
-     * events. The host Activity can pass its generic motion events here.
-     * Return false outside capture so the host game still receives them.
-     */
-    /**
-     * Arcane's analogue menu navigation: left stick Y selects rows, left
-     * stick X selects modal choices, triggers can be captured as L2/R2.
-     * The latch prevents one long analogue press scrolling through pages.
+     * Handle controller axes for menu navigation and button capture. Some
+     * gamepads report triggers and D-pad directions as axes.
      */
     public boolean handleGenericMotionEvent(MotionEvent event) {
         if (!isOpen) return false;
         if (isEditingTouchLayout()) return true;
         if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) == 0 ||
             event.getActionMasked() != MotionEvent.ACTION_MOVE) return false;
+
+        float hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X);
+        float hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+        boolean hatPressed = Math.max(Math.abs(hatX), Math.abs(hatY)) > 0.65f;
+        boolean newHatPress = hatPressed && !hatHeld;
+        hatHeld = hatPressed;
 
         if (unmappedWarningLayer != null) {
             float x = event.getAxisValue(MotionEvent.AXIS_X);
@@ -408,14 +410,25 @@ public final class FrostFrontendView extends FrameLayout {
                 completeButtonCapture(KeyEvent.KEYCODE_BUTTON_L2);
             else if (right > 0.8f && rightTriggerAxis <= 0.8f)
                 completeButtonCapture(KeyEvent.KEYCODE_BUTTON_R2);
+            else if (newHatPress) {
+                int code;
+                if (Math.abs(hatX) > Math.abs(hatY))
+                    code = hatX > 0 ? KeyEvent.KEYCODE_DPAD_RIGHT : KeyEvent.KEYCODE_DPAD_LEFT;
+                else
+                    code = hatY > 0 ? KeyEvent.KEYCODE_DPAD_DOWN : KeyEvent.KEYCODE_DPAD_UP;
+                if (acceptsCapturedButton(code)) {
+                    menuAxisLatch = 1;
+                    completeButtonCapture(code);
+                }
+            }
             leftTriggerAxis = left;
             rightTriggerAxis = right;
             return true;
         }
 
         // Controllers can report the D-pad as hat axes instead of key events.
-        float x = event.getAxisValue(MotionEvent.AXIS_HAT_X);
-        float y = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+        float x = hatX;
+        float y = hatY;
         if (x == 0f && y == 0f) {
             x = event.getAxisValue(MotionEvent.AXIS_X);
             y = event.getAxisValue(MotionEvent.AXIS_Y);
@@ -457,6 +470,11 @@ public final class FrostFrontendView extends FrameLayout {
         if (isOpen) refresh();
     }
 
+    private boolean acceptsCapturedButton(int code) {
+        if (mappingMode && buttonMapper != null) return buttonMapper.acceptsButton(code);
+        return FrostButtonMapper.isAssignableButton(code);
+    }
+
     /** Cancel a pending binding without changing the current assignments. */
     public void cancelButtonCapture() {
         ButtonCaptureListener old = captureListener;
@@ -495,10 +513,9 @@ public final class FrostFrontendView extends FrameLayout {
             int code = event.getKeyCode();
             if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_BUTTON_START) {
                 cancelButtonCapture();
-            } else if (FrostButtonMapper.isAssignableButton(code)) {
+            } else if (acceptsCapturedButton(code)) {
+                if (FrostButtonMapper.isDpadDirection(code)) menuAxisLatch = 1;
                 completeButtonCapture(code);
-            } else {
-                // Arcane ignores unassignable button inputs during capture.
             }
             return true;
         }
